@@ -142,7 +142,7 @@ app.post('/slack/punch', async (req, res) => {
 
         return res.json({
           response_type: 'ephemeral',
-          text: `✅ Cancelled scheduled punch-out at ${schedule.time} JST`
+          text: `✅ Cancelled scheduled punch-out at ${schedule.time} JST\n💡 Auto punch-out (after ${MAX_WORK_HOURS}h) is now active`
         });
       } else {
         return res.json({

@@ -53,11 +53,16 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
    - `/punch-in` → `https://your-app.onrender.com/slack/punch`
    - `/punch-out` → `https://your-app.onrender.com/slack/punch`
 
-3. **Create Incoming Webhook** (optional, for notifications):
+3. **Get Signing Secret** (for security):
+   - Go to "Basic Information" → "App Credentials"
+   - Copy "Signing Secret" to `SLACK_SIGNING_SECRET` env var in Render
+   - This verifies requests are actually from Slack
+
+4. **Create Incoming Webhook** (optional, for notifications):
    - Go to "Incoming Webhooks" → Enable → Add to workspace
    - Copy webhook URL to `SLACK_WEBHOOK_URL` env var
 
-4. **Install app to workspace**
+5. **Install app to workspace**
 
 ## 🎯 Usage
 
@@ -114,6 +119,7 @@ curl https://your-app.onrender.com/status?secret=your-secret
 | `AUTO_PUNCH_OUT_ENABLED` | Enable auto punch-out | `false` |
 | `MAX_WORK_HOURS` | Hours before auto punch-out | `10` |
 | `SLACK_WEBHOOK_URL` | Slack webhook for notifications | Optional |
+| `SLACK_SIGNING_SECRET` | Slack signing secret for request verification | Recommended |
 | `API_SECRET` | Secret key for manual API endpoints | Optional |
 
 ## 🔒 Security
@@ -122,9 +128,11 @@ curl https://your-app.onrender.com/status?secret=your-secret
 - All Slack responses are ephemeral (private)
 - No credentials stored in code
 - Headless browser automation
-- API secret protection for manual endpoints (optional but recommended)
-- Public endpoints: `/`, `/ping`, `/keep-alive` only
-- Protected endpoints require `X-API-Secret` header or `?secret=` query parameter
+- **Slack signature verification** - Validates all `/slack/punch` requests from Slack
+- **API secret protection** for manual endpoints (optional but recommended)
+- **Public endpoints**: `/`, `/ping`, `/keep-alive` only
+- **Protected endpoints**: `/status`, `/scheduled`, `/punch/*` require `X-API-Secret` header
+- **Replay attack prevention** - Rejects Slack requests older than 5 minutes
 
 ## 💰 Cost
 

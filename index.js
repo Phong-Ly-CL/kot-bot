@@ -8,9 +8,18 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+// Middleware to capture raw body for Slack signature verification
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
+app.use(express.urlencoded({
+  extended: true,
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 
 // Environment variables
 const KOT_URL = process.env.KOT_URL || "https://s2.kingtime.jp/independent/recorder/personal/";
@@ -56,12 +65,47 @@ app.get('/ping', (req, res) => {
   res.send('pong');
 });
 
+// Slack signature verification middleware
+function verifySlackSignature(req, res, next) {
+  // Skip verification if SLACK_SIGNING_SECRET is not set (development mode)
+  if (!SLACK_SIGNING_SECRET) {
+    console.warn('WARNING: SLACK_SIGNING_SECRET not set - skipping signature verification');
+    return next();
+  }
+
+  const slackSignature = req.headers['x-slack-signature'];
+  const timestamp = req.headers['x-slack-request-timestamp'];
+
+  if (!slackSignature || !timestamp) {
+    return res.status(401).json({ error: 'Unauthorized - Missing Slack signature' });
+  }
+
+  // Prevent replay attacks (request older than 5 minutes)
+  const time = Math.floor(Date.now() / 1000);
+  if (Math.abs(time - timestamp) > 300) {
+    return res.status(401).json({ error: 'Unauthorized - Request too old' });
+  }
+
+  // Verify signature
+  const crypto = require('crypto');
+  const sigBasestring = `v0:${timestamp}:${req.rawBody}`;
+  const mySignature = 'v0=' + crypto.createHmac('sha256', SLACK_SIGNING_SECRET)
+    .update(sigBasestring, 'utf8')
+    .digest('hex');
+
+  if (crypto.timingSafeEqual(Buffer.from(mySignature), Buffer.from(slackSignature))) {
+    return next();
+  }
+
+  return res.status(401).json({ error: 'Unauthorized - Invalid Slack signature' });
+}
+
 // Slack slash command handler
-app.post('/slack/punch', async (req, res) => {
+app.post('/slack/punch', verifySlackSignature, async (req, res) => {
   try {
     const { command, text = '', user_id } = req.body;
 
-    // Basic verification (in production, verify Slack signature)
+    // Basic validation
     if (!command || !user_id) {
       return res.status(400).json({ error: 'Invalid request' });
     }

@@ -25,5 +25,7 @@ services:
         sync: false
       - key: API_SECRET
         sync: false
+      - key: SLACK_SIGNING_SECRET
+        sync: false
     healthCheckPath: /ping
     autoDeploy: true

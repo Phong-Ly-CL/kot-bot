@@ -7,92 +7,78 @@ const launchOptions = {
     "--no-sandbox",
     "--disable-setuid-sandbox",
     "--disable-dev-shm-usage",
-    "--single-process"
+    "--single-process",
   ],
   headless: true,
 };
 
+// KING OF TIME selectors
+const SELECTORS = {
+  id: "#id",
+  password: "#password",
+  loginButton: ".btn-control-message",
+  clockIn: ".record-clock-in",
+  clockOut: ".record-clock-out",
+  notification: '#notification_wrapper[style="display: none;"]',
+};
+
+const NOTIFICATION_CONTENT = {
+  login: "データを取得しました",
+  clockIn: "出勤が完了しました",
+  clockOut: "退勤が完了しました",
+};
+
 export async function punch(url, userId, password, action) {
   const browser = await puppeteer.launch(launchOptions);
-  
+
   try {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
-    // Wait for login form and take screenshot for debugging
-    await page.waitForSelector('input[name="login_id"], input[id="login_id"], #txtUser', { timeout: 10000 });
+    console.log("Logging in...");
 
-    // Try multiple possible selectors
-    const userInputSelector = await page.evaluate(() => {
-      const selectors = ['input[name="login_id"]', 'input[id="login_id"]', '#txtUser', 'input[type="text"]'];
-      for (const sel of selectors) {
-        if (document.querySelector(sel)) return sel;
-      }
-      return null;
-    });
-
-    const passInputSelector = await page.evaluate(() => {
-      const selectors = ['input[name="password"]', 'input[id="password"]', '#txtPass', 'input[type="password"]'];
-      for (const sel of selectors) {
-        if (document.querySelector(sel)) return sel;
-      }
-      return null;
-    });
-
-    if (!userInputSelector || !passInputSelector) {
-      console.error('Could not find login form selectors');
-      throw new Error('Login form not found');
-    }
-
-    await page.type(userInputSelector, userId, { delay: 30 });
-    await page.type(passInputSelector, password, { delay: 30 });
-
-    // Find and click login button
-    const loginButtonSelector = await page.evaluate(() => {
-      const selectors = ['button[type="submit"]', 'input[type="submit"]', '#btnLogin', 'button'];
-      for (const sel of selectors) {
-        const btn = document.querySelector(sel);
-        if (btn && (btn.textContent.includes('ログイン') || btn.value === 'ログイン' || btn.id === 'btnLogin')) {
-          return sel;
-        }
-      }
-      return 'button[type="submit"]';
-    });
+    // Login
+    await page.type(SELECTORS.id, userId);
+    await page.type(SELECTORS.password, password);
 
     await Promise.all([
-      page.waitForNavigation({ timeout: 30000 }),
-      page.click(loginButtonSelector)
+      page.waitForFunction(
+        (selector, content) => {
+          const elem = document.querySelector(selector);
+          return elem?.textContent?.includes(content);
+        },
+        { timeout: 10000 },
+        SELECTORS.notification,
+        NOTIFICATION_CONTENT.login
+      ),
+      page.click(SELECTORS.loginButton),
     ]);
 
-    // Wait for punch buttons to appear
-    await page.waitForSelector('input, button, a', { timeout: 10000 });
+    console.log("Login successful");
 
-    // Find punch in/out button
-    const punchButtonSelector = action === "in"
-      ? await page.evaluate(() => {
-          const selectors = ['#btnClockIn', 'input[value*="出勤"]', 'button:has-text("出勤")'];
-          for (const sel of selectors) {
-            if (document.querySelector(sel)) return sel;
-          }
-          return null;
-        })
-      : await page.evaluate(() => {
-          const selectors = ['#btnClockOut', 'input[value*="退勤"]', 'button:has-text("退勤")'];
-          for (const sel of selectors) {
-            if (document.querySelector(sel)) return sel;
-          }
-          return null;
-        });
+    // Click punch in/out button
+    const punchSelector =
+      action === "in" ? SELECTORS.clockIn : SELECTORS.clockOut;
+    const notificationContent =
+      action === "in"
+        ? NOTIFICATION_CONTENT.clockIn
+        : NOTIFICATION_CONTENT.clockOut;
 
-    if (!punchButtonSelector) {
-      console.error('Could not find punch button');
-      throw new Error(`Punch ${action} button not found`);
-    }
+    console.log(`Clicking ${action} button...`);
+    await Promise.all([
+      page.waitForFunction(
+        (selector, content) => {
+          const elem = document.querySelector(selector);
+          return elem?.textContent?.includes(content);
+        },
+        { timeout: 10000 },
+        SELECTORS.notification,
+        notificationContent
+      ),
+      page.click(punchSelector),
+    ]);
 
-    await page.click(punchButtonSelector);
-    await page.waitForTimeout(2000); // Wait for action to complete
-
-    console.log(`${action.toUpperCase()} done for ${userId}`);
+    console.log(`${action.toUpperCase()} completed for ${userId}`);
     return true;
   } catch (error) {
     console.error(`Error during ${action} punch:`, error);
@@ -109,62 +95,37 @@ export async function checkWorkingHours(url, userId, password) {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
-    // Wait for login form
-    await page.waitForSelector('input[name="login_id"], input[id="login_id"], #txtUser', { timeout: 10000 });
-
-    // Find input selectors
-    const userInputSelector = await page.evaluate(() => {
-      const selectors = ['input[name="login_id"]', 'input[id="login_id"]', '#txtUser', 'input[type="text"]'];
-      for (const sel of selectors) {
-        if (document.querySelector(sel)) return sel;
-      }
-      return null;
-    });
-
-    const passInputSelector = await page.evaluate(() => {
-      const selectors = ['input[name="password"]', 'input[id="password"]', '#txtPass', 'input[type="password"]'];
-      for (const sel of selectors) {
-        if (document.querySelector(sel)) return sel;
-      }
-      return null;
-    });
-
-    if (!userInputSelector || !passInputSelector) {
-      throw new Error('Login form not found');
-    }
-
-    await page.type(userInputSelector, userId, { delay: 30 });
-    await page.type(passInputSelector, password, { delay: 30 });
-
-    // Find and click login button
-    const loginButtonSelector = await page.evaluate(() => {
-      const selectors = ['button[type="submit"]', 'input[type="submit"]', '#btnLogin'];
-      for (const sel of selectors) {
-        const btn = document.querySelector(sel);
-        if (btn && (btn.textContent?.includes('ログイン') || btn.value === 'ログイン' || btn.id === 'btnLogin')) {
-          return sel;
-        }
-      }
-      return 'button[type="submit"]';
-    });
+    // Login
+    await page.type(SELECTORS.id, userId);
+    await page.type(SELECTORS.password, password);
 
     await Promise.all([
-      page.waitForNavigation({ timeout: 30000 }),
-      page.click(loginButtonSelector)
+      page.waitForFunction(
+        (selector, content) => {
+          const elem = document.querySelector(selector);
+          return elem?.textContent?.includes(content);
+        },
+        { timeout: 10000 },
+        SELECTORS.notification,
+        NOTIFICATION_CONTENT.login
+      ),
+      page.click(SELECTORS.loginButton),
     ]);
 
-    await page.waitForTimeout(2000);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Check if currently punched in
-    const isPunchedIn = await page.evaluate(() => {
-      return !!document.querySelector('#btnClockOut, input[value*="退勤"], button:contains("退勤")');
-    });
-    
+    // Check if currently punched in by looking for clock-out button
+    const isPunchedIn = await page.evaluate((selector) => {
+      return !!document.querySelector(selector);
+    }, SELECTORS.clockOut);
+
     if (isPunchedIn) {
       // Get punch-in time - this may need adjustment based on actual UI
       const punchInTime = await page.evaluate(() => {
         // Look for punch-in time display
-        const timeElement = document.querySelector('.punch-in-time, .start-time, [data-punch-in]');
+        const timeElement = document.querySelector(
+          ".punch-in-time, .start-time, [data-punch-in]"
+        );
         return timeElement ? timeElement.textContent.trim() : null;
       });
 
@@ -173,11 +134,11 @@ export async function checkWorkingHours(url, userId, password) {
         const today = now.toDateString();
         const startTime = new Date(`${today} ${punchInTime}`);
         const hoursWorked = (now - startTime) / (1000 * 60 * 60);
-        
+
         return {
           isPunchedIn: true,
           hoursWorked: hoursWorked,
-          punchInTime: startTime
+          punchInTime: startTime,
         };
       }
     }
@@ -185,15 +146,14 @@ export async function checkWorkingHours(url, userId, password) {
     return {
       isPunchedIn: false,
       hoursWorked: 0,
-      punchInTime: null
+      punchInTime: null,
     };
-
   } catch (error) {
-    console.error('Error checking working hours:', error);
+    console.error("Error checking working hours:", error);
     return {
       isPunchedIn: false,
       hoursWorked: 0,
-      punchInTime: null
+      punchInTime: null,
     };
   } finally {
     await browser.close();

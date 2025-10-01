@@ -85,14 +85,34 @@ app.post('/slack/punch', async (req, res) => {
     } else if (command === '/punch') {
       action = textParts[0]?.toLowerCase();
 
+      // Check for status: /punch status
+      if (action === 'status') {
+        if (scheduledPunchOuts.has(user_id)) {
+          const schedule = scheduledPunchOuts.get(user_id);
+          const now = new Date();
+          const remainingMs = schedule.targetDate - now;
+          const remainingMin = Math.round(remainingMs / 60000);
+
+          return res.json({
+            response_type: 'ephemeral',
+            text: `⏰ You have a scheduled punch-out at ${schedule.time} JST\n📅 Target: ${schedule.targetDate.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' })}\n⏱️ Remaining: ~${remainingMin} minutes`
+          });
+        } else {
+          return res.json({
+            response_type: 'ephemeral',
+            text: "ℹ️ No scheduled punch-out found"
+          });
+        }
+      }
+
       // Check for cancel: /punch cancel or /punch out cancel
       if (action === 'cancel' || (action === 'out' && textParts[1]?.toLowerCase() === 'cancel')) {
         action = 'out';
         cancelSchedule = true;
-      } else if (!['in', 'out'].includes(action)) {
+      } else if (!['in', 'out', 'status'].includes(action)) {
         return res.json({
           response_type: 'ephemeral',
-          text: "❌ Please specify 'in' or 'out'. Usage: `/punch in` or `/punch out @ HH:MM` or `/punch cancel`"
+          text: "❌ Please specify 'in', 'out', 'status', or 'cancel'. Usage: `/punch in` or `/punch out @ HH:MM` or `/punch status` or `/punch cancel`"
         });
       } else if (action === 'out') {
         // Check for @ time syntax: /punch out @ 19:00

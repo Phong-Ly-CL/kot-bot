@@ -366,17 +366,21 @@ if (AUTO_PUNCH_OUT_ENABLED) {
 
     try {
       const status = await checkWorkingHours(KOT_URL, KOT_ID, KOT_PASS);
-      
+
       if (status.isPunchedIn && status.hoursWorked >= MAX_WORK_HOURS) {
-        console.log(`Auto punching out after ${status.hoursWorked.toFixed(2)} hours`);
-        
-        await punch(KOT_URL, KOT_ID, KOT_PASS, "out");
-        
-        const message = `🚨 Auto punched out after ${status.hoursWorked.toFixed(2)} hours of work`;
-        console.log(message);
-        
-        await sendSlackNotification(message);
-        
+        // Check if there's a scheduled punch-out - if yes, respect it
+        if (scheduledPunchOuts.size > 0) {
+          console.log(`Worked ${status.hoursWorked.toFixed(2)} hours, but scheduled punch-out exists - skipping auto punch-out`);
+        } else {
+          console.log(`Worked ${status.hoursWorked.toFixed(2)} hours - triggering auto punch-out`);
+
+          await punch(KOT_URL, KOT_ID, KOT_PASS, "out");
+
+          const message = `🚨 Auto punched out after ${status.hoursWorked.toFixed(2)} hours of work`;
+          console.log(message);
+
+          await sendSlackNotification(message);
+        }
       } else if (status.isPunchedIn) {
         console.log(`Currently punched in for ${status.hoursWorked.toFixed(2)} hours (under ${MAX_WORK_HOURS}h limit)`);
       } else {

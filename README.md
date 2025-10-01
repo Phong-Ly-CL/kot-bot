@@ -76,8 +76,10 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 
 ### Auto Features:
 - **Auto punch-out** after 10 hours (or your configured limit)
+- **Scheduled punch-out takes priority** over auto punch-out
 - **Slack notifications** when auto/scheduled punch-out happens
 - **Hourly checks** to monitor work hours
+- **In-memory tracking** - punch-in times stored in memory (resets on server restart)
 
 ### Manual Endpoints:
 - `GET /` - Health check
@@ -135,3 +137,5 @@ npm run dev
 - Uptime Robot keeps the app alive (pings every 10 minutes)
 - Cold starts may take 15-30 seconds if app goes to sleep
 - Keep-alive endpoints: `/ping`, `/keep-alive`, `/`
+- **Important**: Punch-in times are stored in memory and will reset if the server restarts
+- **Important**: Auto punch-out only works if you punch in via this bot (Slack commands or API)

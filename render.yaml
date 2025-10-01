@@ -2,12 +2,16 @@ services:
   - type: web
     name: kot-slack-bot
     env: node
-    buildCommand: npm install
+    buildCommand: npm ci
     startCommand: npm start
     plan: free
     region: oregon
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: false
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/.cache/puppeteer
     healthCheckPath: /ping
     autoDeploy: true

@@ -37,6 +37,9 @@ export async function punch(url, userId, password, action) {
 
     console.log("Logging in...");
 
+    // Wait for login form to be ready
+    await page.waitForSelector(SELECTORS.id, { timeout: 10000 });
+
     // Login
     await page.type(SELECTORS.id, userId);
     await page.type(SELECTORS.password, password);
@@ -94,6 +97,9 @@ export async function checkWorkingHours(url, userId, password) {
   try {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+
+    // Wait for login form to be ready
+    await page.waitForSelector(SELECTORS.id, { timeout: 10000 });
 
     // Login
     await page.type(SELECTORS.id, userId);

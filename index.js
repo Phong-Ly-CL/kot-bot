@@ -21,6 +21,9 @@ const AUTO_PUNCH_OUT_ENABLED = process.env.AUTO_PUNCH_OUT_ENABLED === 'true';
 const MAX_WORK_HOURS = parseInt(process.env.MAX_WORK_HOURS) || 10;
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
+// Store scheduled punch-outs (in-memory, will reset on restart)
+const scheduledPunchOuts = new Map();
+
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({ 
@@ -59,19 +62,44 @@ app.post('/slack/punch', async (req, res) => {
       return res.status(400).json({ error: 'Invalid request' });
     }
 
-    // Determine action
+    // Parse command and check for scheduled time or cancel
+    const textParts = text.trim().split(/\s+/);
     let action;
+    let scheduledTime = null;
+    let cancelSchedule = false;
+
     if (command === '/punch-in') {
       action = 'in';
     } else if (command === '/punch-out') {
       action = 'out';
+      // Check for cancel
+      if (textParts[0]?.toLowerCase() === 'cancel') {
+        cancelSchedule = true;
+      } else {
+        // Check for @ time syntax: /punch-out @ 19:00
+        const atIndex = textParts.indexOf('@');
+        if (atIndex !== -1 && textParts[atIndex + 1]) {
+          scheduledTime = textParts[atIndex + 1];
+        }
+      }
     } else if (command === '/punch') {
-      action = text.trim().toLowerCase();
-      if (!['in', 'out'].includes(action)) {
+      action = textParts[0]?.toLowerCase();
+
+      // Check for cancel: /punch cancel or /punch out cancel
+      if (action === 'cancel' || (action === 'out' && textParts[1]?.toLowerCase() === 'cancel')) {
+        action = 'out';
+        cancelSchedule = true;
+      } else if (!['in', 'out'].includes(action)) {
         return res.json({
           response_type: 'ephemeral',
-          text: "❌ Please specify 'in' or 'out'. Usage: `/punch in` or `/punch out`"
+          text: "❌ Please specify 'in' or 'out'. Usage: `/punch in` or `/punch out @ HH:MM` or `/punch cancel`"
         });
+      } else if (action === 'out') {
+        // Check for @ time syntax: /punch out @ 19:00
+        const atIndex = textParts.indexOf('@');
+        if (atIndex !== -1 && textParts[atIndex + 1]) {
+          scheduledTime = textParts[atIndex + 1];
+        }
       }
     } else {
       return res.status(400).json({ error: 'Unknown command' });
@@ -85,7 +113,50 @@ app.post('/slack/punch', async (req, res) => {
       });
     }
 
-    // Immediate response
+    // Handle cancel scheduled punch-out
+    if (cancelSchedule) {
+      if (scheduledPunchOuts.has(user_id)) {
+        const schedule = scheduledPunchOuts.get(user_id);
+        clearTimeout(schedule.timeoutId);
+        scheduledPunchOuts.delete(user_id);
+
+        return res.json({
+          response_type: 'ephemeral',
+          text: `✅ Cancelled scheduled punch-out at ${schedule.time} JST`
+        });
+      } else {
+        return res.json({
+          response_type: 'ephemeral',
+          text: "❌ No scheduled punch-out found to cancel"
+        });
+      }
+    }
+
+    // Handle scheduled punch-out
+    if (scheduledTime && action === 'out') {
+      try {
+        const scheduleResult = scheduleOutPunch(user_id, scheduledTime);
+
+        if (scheduleResult.success) {
+          return res.json({
+            response_type: 'ephemeral',
+            text: `⏰ Scheduled punch out at ${scheduleResult.time} JST (${scheduleResult.delay}ms from now)`
+          });
+        } else {
+          return res.json({
+            response_type: 'ephemeral',
+            text: `❌ ${scheduleResult.error}`
+          });
+        }
+      } catch (error) {
+        return res.json({
+          response_type: 'ephemeral',
+          text: `❌ Failed to schedule: ${error.message}`
+        });
+      }
+    }
+
+    // Immediate response for instant punch
     res.json({
       response_type: 'ephemeral',
       text: `⏰ Punching ${action}... Please wait...`
@@ -95,14 +166,14 @@ app.post('/slack/punch', async (req, res) => {
     try {
       await punch(KOT_URL, KOT_ID, KOT_PASS, action);
       console.log(`Successfully punched ${action} for user ${user_id}`);
-      
+
       // Send follow-up notification if webhook is configured
       if (SLACK_WEBHOOK_URL) {
         await sendSlackNotification(`✅ Successfully punched ${action} ${action === 'in' ? 'to' : 'from'} KING OF TIME!`);
       }
     } catch (error) {
       console.error(`Punch ${action} error:`, error);
-      
+
       if (SLACK_WEBHOOK_URL) {
         await sendSlackNotification(`❌ Failed to punch ${action}. Please try again.`);
       }
@@ -150,23 +221,117 @@ app.get('/status', async (req, res) => {
   }
 });
 
+// Scheduled punch-outs endpoint
+app.get('/scheduled', (req, res) => {
+  const scheduled = [];
+
+  for (const [userId, schedule] of scheduledPunchOuts.entries()) {
+    scheduled.push({
+      userId,
+      time: schedule.time,
+      targetDate: schedule.targetDate,
+      createdAt: schedule.createdAt
+    });
+  }
+
+  res.json({
+    count: scheduled.length,
+    scheduled
+  });
+});
+
 // Helper function to send Slack notifications
 async function sendSlackNotification(message) {
   if (!SLACK_WEBHOOK_URL) return;
-  
+
   try {
     const response = await fetch(SLACK_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: message })
     });
-    
+
     if (!response.ok) {
       console.error('Failed to send Slack notification:', response.statusText);
     }
   } catch (error) {
     console.error('Error sending Slack notification:', error);
   }
+}
+
+// Schedule punch-out function
+function scheduleOutPunch(userId, timeString) {
+  // Parse time string (HH:MM format)
+  const timeMatch = timeString.match(/^(\d{1,2}):(\d{2})$/);
+
+  if (!timeMatch) {
+    return { success: false, error: 'Invalid time format. Use HH:MM (e.g., 19:00)' };
+  }
+
+  const [, hours, minutes] = timeMatch;
+  const hour = parseInt(hours);
+  const minute = parseInt(minutes);
+
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return { success: false, error: 'Invalid time. Hours: 0-23, Minutes: 0-59' };
+  }
+
+  // Create target time in JST (UTC+9)
+  const now = new Date();
+  const jstOffset = 9 * 60; // JST is UTC+9
+  const userOffset = now.getTimezoneOffset();
+  const offsetDiff = jstOffset + userOffset;
+
+  // Create target date in JST
+  const targetJST = new Date(now.getTime() + offsetDiff * 60 * 1000);
+  targetJST.setHours(hour, minute, 0, 0);
+
+  // Convert back to local time
+  const targetLocal = new Date(targetJST.getTime() - offsetDiff * 60 * 1000);
+
+  // If time has passed today, schedule for tomorrow
+  if (targetLocal <= now) {
+    targetLocal.setDate(targetLocal.getDate() + 1);
+  }
+
+  const delay = targetLocal.getTime() - now.getTime();
+
+  // Cancel existing scheduled punch-out for this user
+  if (scheduledPunchOuts.has(userId)) {
+    clearTimeout(scheduledPunchOuts.get(userId).timeoutId);
+  }
+
+  // Schedule the punch-out
+  const timeoutId = setTimeout(async () => {
+    console.log(`Executing scheduled punch-out for user ${userId}`);
+
+    try {
+      await punch(KOT_URL, KOT_ID, KOT_PASS, 'out');
+      console.log(`Scheduled punch-out successful for user ${userId}`);
+
+      await sendSlackNotification(`✅ Scheduled punch-out completed at ${timeString} JST`);
+    } catch (error) {
+      console.error(`Scheduled punch-out failed for user ${userId}:`, error);
+      await sendSlackNotification(`❌ Scheduled punch-out failed at ${timeString} JST`);
+    }
+
+    scheduledPunchOuts.delete(userId);
+  }, delay);
+
+  // Store the scheduled punch-out
+  scheduledPunchOuts.set(userId, {
+    timeoutId,
+    time: timeString,
+    targetDate: targetLocal,
+    createdAt: now
+  });
+
+  return {
+    success: true,
+    time: timeString,
+    delay,
+    targetDate: targetLocal.toISOString()
+  };
 }
 
 // Auto punch-out cron job - runs every hour

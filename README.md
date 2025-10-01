@@ -5,9 +5,10 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 ## ✨ Features
 
 - **Slack Commands**: `/punch in`, `/punch out`, `/punch-in`, `/punch-out`
+- **Scheduled Punch-Out**: Schedule punch-out at specific time (e.g., `/punch out @ 19:00`)
 - **Auto Punch-Out**: Automatically punches out after 10 hours (configurable)
 - **Render Deployment**: Free hosting on Render with Uptime Robot monitoring
-- **Slack Notifications**: Get notified when auto punch-out happens
+- **Slack Notifications**: Get notified when auto/scheduled punch-out happens
 - **Status Checking**: Manual status endpoint to check current work hours
 - **Keep-Alive**: Uptime Robot keeps the bot awake for reliable auto punch-out
 
@@ -55,19 +56,31 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 ## 🎯 Usage
 
 ### Slack Commands:
-- `/punch in` - Clock in
-- `/punch out` - Clock out
-- `/punch-in` - Clock in (dedicated)
-- `/punch-out` - Clock out (dedicated)
+- `/punch in` - Clock in immediately
+- `/punch out` - Clock out immediately
+- `/punch out @ 19:00` - Schedule punch-out at 19:00 JST
+- `/punch cancel` - Cancel scheduled punch-out
+- `/punch-in` - Clock in (dedicated command)
+- `/punch-out` - Clock out immediately (dedicated command)
+- `/punch-out @ 18:30` - Schedule punch-out at 18:30 JST
+- `/punch-out cancel` - Cancel scheduled punch-out
+
+### Scheduled Punch-Out:
+- Use `@ HH:MM` format to schedule punch-out (JST timezone)
+- Example: `/punch out @ 19:00` schedules punch-out at 7:00 PM JST
+- Use `cancel` to cancel: `/punch cancel` or `/punch-out cancel`
+- Only one scheduled punch-out per user (new schedule replaces old)
+- Schedules persist until server restart
 
 ### Auto Features:
 - **Auto punch-out** after 10 hours (or your configured limit)
-- **Slack notifications** when auto punch-out happens
+- **Slack notifications** when auto/scheduled punch-out happens
 - **Hourly checks** to monitor work hours
 
 ### Manual Endpoints:
 - `GET /` - Health check
 - `GET /status` - Check current work status
+- `GET /scheduled` - View all scheduled punch-outs
 - `POST /punch/in` - Manual punch in
 - `POST /punch/out` - Manual punch out
 

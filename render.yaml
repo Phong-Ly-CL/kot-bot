@@ -2,13 +2,15 @@ services:
   - type: web
     name: kot-bot
     env: node
-    buildCommand: npm ci && npx puppeteer browsers install chrome
+    buildCommand: npm ci && npx @puppeteer/browsers install chrome@stable --path /opt/render/project/.cache/puppeteer
     startCommand: npm start
     plan: free
     region: oregon
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/project/.cache/puppeteer
       - key: KOT_ID
         sync: false
       - key: KOT_PASS

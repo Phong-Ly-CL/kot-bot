@@ -1,10 +1,19 @@
 import puppeteer from "puppeteer";
 
+// Chrome launch configuration for Render
+const launchOptions = {
+  args: [
+    "--disable-gpu",
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--single-process"
+  ],
+  headless: true,
+};
+
 export async function punch(url, userId, password, action) {
-  const browser = await puppeteer.launch({
-    args: ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"],
-    headless: true,
-  });
+  const browser = await puppeteer.launch(launchOptions);
   
   try {
     const page = await browser.newPage();
@@ -26,10 +35,7 @@ export async function punch(url, userId, password, action) {
 }
 
 export async function checkWorkingHours(url, userId, password) {
-  const browser = await puppeteer.launch({
-    args: ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"],
-    headless: true,
-  });
+  const browser = await puppeteer.launch(launchOptions);
 
   try {
     const page = await browser.newPage();

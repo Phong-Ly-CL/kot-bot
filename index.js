@@ -24,6 +24,9 @@ const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 // Store scheduled punch-outs (in-memory, will reset on restart)
 const scheduledPunchOuts = new Map();
 
+// Store punch-in times (in-memory, will reset on restart)
+const punchInTimes = new Map();
+
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({ 
@@ -187,6 +190,15 @@ app.post('/slack/punch', async (req, res) => {
       await punch(KOT_URL, KOT_ID, KOT_PASS, action);
       console.log(`Successfully punched ${action} for user ${user_id}`);
 
+      // Store punch-in time or clear it on punch-out
+      if (action === 'in') {
+        punchInTimes.set(user_id, new Date());
+        console.log(`Stored punch-in time for user ${user_id}: ${new Date().toISOString()}`);
+      } else if (action === 'out') {
+        punchInTimes.delete(user_id);
+        console.log(`Cleared punch-in time for user ${user_id}`);
+      }
+
       // Send follow-up notification if webhook is configured
       if (SLACK_WEBHOOK_URL) {
         await sendSlackNotification(`✅ Successfully punched ${action} ${action === 'in' ? 'to' : 'from'} KING OF TIME!`);
@@ -208,7 +220,7 @@ app.post('/slack/punch', async (req, res) => {
 // Manual punch endpoint (for testing)
 app.post('/punch/:action', async (req, res) => {
   const { action } = req.params;
-  
+
   if (!['in', 'out'].includes(action)) {
     return res.status(400).json({ error: 'Action must be "in" or "out"' });
   }
@@ -219,6 +231,17 @@ app.post('/punch/:action', async (req, res) => {
 
   try {
     await punch(KOT_URL, KOT_ID, KOT_PASS, action);
+
+    // Store punch-in time with default user ID for manual punches
+    const defaultUserId = 'manual-user';
+    if (action === 'in') {
+      punchInTimes.set(defaultUserId, new Date());
+      console.log(`Stored punch-in time for manual user: ${new Date().toISOString()}`);
+    } else if (action === 'out') {
+      punchInTimes.delete(defaultUserId);
+      console.log(`Cleared punch-in time for manual user`);
+    }
+
     res.json({ success: true, message: `Punched ${action} successfully` });
   } catch (error) {
     console.error(`Manual punch ${action} error:`, error);
@@ -228,12 +251,8 @@ app.post('/punch/:action', async (req, res) => {
 
 // Status endpoint
 app.get('/status', async (req, res) => {
-  if (!KOT_ID || !KOT_PASS) {
-    return res.status(400).json({ error: 'KOT credentials not configured' });
-  }
-
   try {
-    const status = await checkWorkingHours(KOT_URL, KOT_ID, KOT_PASS);
+    const status = await checkWorkingHours(punchInTimes);
     res.json(status);
   } catch (error) {
     console.error('Status check error:', error);
@@ -365,7 +384,7 @@ if (AUTO_PUNCH_OUT_ENABLED) {
     }
 
     try {
-      const status = await checkWorkingHours(KOT_URL, KOT_ID, KOT_PASS);
+      const status = await checkWorkingHours(punchInTimes);
 
       if (status.isPunchedIn && status.hoursWorked >= MAX_WORK_HOURS) {
         // Check if there's a scheduled punch-out - if yes, respect it
@@ -375,6 +394,11 @@ if (AUTO_PUNCH_OUT_ENABLED) {
           console.log(`Worked ${status.hoursWorked.toFixed(2)} hours - triggering auto punch-out`);
 
           await punch(KOT_URL, KOT_ID, KOT_PASS, "out");
+
+          // Clear the punch-in time after successful auto punch-out
+          if (status.userId) {
+            punchInTimes.delete(status.userId);
+          }
 
           const message = `🚨 Auto punched out after ${status.hoursWorked.toFixed(2)} hours of work`;
           console.log(message);

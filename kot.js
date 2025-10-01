@@ -91,77 +91,28 @@ export async function punch(url, userId, password, action) {
   }
 }
 
-export async function checkWorkingHours(url, userId, password) {
-  const browser = await puppeteer.launch(launchOptions);
+export async function checkWorkingHours(punchInTimesMap) {
+  // Simple check using stored punch-in time
+  // Note: This only works for users who punch in via our bot
 
-  try {
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
-
-    // Wait for login form to be ready
-    await page.waitForSelector(SELECTORS.id, { timeout: 10000 });
-
-    // Login
-    await page.type(SELECTORS.id, userId);
-    await page.type(SELECTORS.password, password);
-
-    await Promise.all([
-      page.waitForFunction(
-        (selector, content) => {
-          const elem = document.querySelector(selector);
-          return elem?.textContent?.includes(content);
-        },
-        { timeout: 10000 },
-        SELECTORS.notification,
-        NOTIFICATION_CONTENT.login
-      ),
-      page.click(SELECTORS.loginButton),
-    ]);
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Check if currently punched in by looking for clock-out button
-    const isPunchedIn = await page.evaluate((selector) => {
-      return !!document.querySelector(selector);
-    }, SELECTORS.clockOut);
-
-    if (isPunchedIn) {
-      // Get punch-in time - this may need adjustment based on actual UI
-      const punchInTime = await page.evaluate(() => {
-        // Look for punch-in time display
-        const timeElement = document.querySelector(
-          ".punch-in-time, .start-time, [data-punch-in]"
-        );
-        return timeElement ? timeElement.textContent.trim() : null;
-      });
-
-      if (punchInTime) {
-        const now = new Date();
-        const today = now.toDateString();
-        const startTime = new Date(`${today} ${punchInTime}`);
-        const hoursWorked = (now - startTime) / (1000 * 60 * 60);
-
-        return {
-          isPunchedIn: true,
-          hoursWorked: hoursWorked,
-          punchInTime: startTime,
-        };
-      }
-    }
+  // Since we store per-user, but auto punch-out is global,
+  // check if ANY user is punched in and over the limit
+  for (const [userId, punchInTime] of punchInTimesMap.entries()) {
+    const now = new Date();
+    const hoursWorked = (now - punchInTime) / (1000 * 60 * 60);
 
     return {
-      isPunchedIn: false,
-      hoursWorked: 0,
-      punchInTime: null,
+      isPunchedIn: true,
+      hoursWorked: hoursWorked,
+      punchInTime: punchInTime,
+      userId: userId
     };
-  } catch (error) {
-    console.error("Error checking working hours:", error);
-    return {
-      isPunchedIn: false,
-      hoursWorked: 0,
-      punchInTime: null,
-    };
-  } finally {
-    await browser.close();
   }
+
+  return {
+    isPunchedIn: false,
+    hoursWorked: 0,
+    punchInTime: null,
+    userId: null
+  };
 }

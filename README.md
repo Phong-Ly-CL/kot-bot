@@ -28,6 +28,12 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
    AUTO_PUNCH_OUT_ENABLED=true
    MAX_WORK_HOURS=10
    SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+   API_SECRET=your-random-secret-key
+   ```
+
+   Generate a random API secret:
+   ```bash
+   openssl rand -hex 32
    ```
 
 4. **Deploy automatically** - Render will build and deploy
@@ -82,11 +88,22 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 - **In-memory tracking** - punch-in times stored in memory (resets on server restart)
 
 ### Manual Endpoints:
-- `GET /` - Health check
-- `GET /status` - Check current work status
-- `GET /scheduled` - View all scheduled punch-outs
-- `POST /punch/in` - Manual punch in
-- `POST /punch/out` - Manual punch out
+- `GET /` - Health check (public)
+- `GET /ping` - Ping endpoint (public)
+- `GET /keep-alive` - Keep-alive for Uptime Robot (public)
+- `GET /status` - Check current work status (requires API secret)
+- `GET /scheduled` - View all scheduled punch-outs (requires API secret)
+- `POST /punch/in` - Manual punch in (requires API secret)
+- `POST /punch/out` - Manual punch out (requires API secret)
+
+**Authentication for manual endpoints:**
+```bash
+# Using header (recommended)
+curl -H "X-API-Secret: your-secret" https://your-app.onrender.com/status
+
+# Using query parameter
+curl https://your-app.onrender.com/status?secret=your-secret
+```
 
 ## ⚙️ Configuration
 
@@ -97,6 +114,7 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 | `AUTO_PUNCH_OUT_ENABLED` | Enable auto punch-out | `false` |
 | `MAX_WORK_HOURS` | Hours before auto punch-out | `10` |
 | `SLACK_WEBHOOK_URL` | Slack webhook for notifications | Optional |
+| `API_SECRET` | Secret key for manual API endpoints | Optional |
 
 ## 🔒 Security
 
@@ -104,6 +122,9 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 - All Slack responses are ephemeral (private)
 - No credentials stored in code
 - Headless browser automation
+- API secret protection for manual endpoints (optional but recommended)
+- Public endpoints: `/`, `/ping`, `/keep-alive` only
+- Protected endpoints require `X-API-Secret` header or `?secret=` query parameter
 
 ## 💰 Cost
 

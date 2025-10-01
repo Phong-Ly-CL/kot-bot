@@ -23,5 +23,7 @@ services:
         value: 10
       - key: SLACK_WEBHOOK_URL
         sync: false
+      - key: API_SECRET
+        sync: false
     healthCheckPath: /ping
     autoDeploy: true

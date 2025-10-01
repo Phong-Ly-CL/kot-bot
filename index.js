@@ -20,6 +20,7 @@ const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
 const AUTO_PUNCH_OUT_ENABLED = process.env.AUTO_PUNCH_OUT_ENABLED === 'true';
 const MAX_WORK_HOURS = parseInt(process.env.MAX_WORK_HOURS) || 10;
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
+const API_SECRET = process.env.API_SECRET;
 
 // Store scheduled punch-outs (in-memory, will reset on restart)
 const scheduledPunchOuts = new Map();
@@ -221,6 +222,12 @@ app.post('/slack/punch', async (req, res) => {
 app.post('/punch/:action', async (req, res) => {
   const { action } = req.params;
 
+  // Check API secret for manual endpoints
+  const apiSecret = req.headers['x-api-secret'] || req.query.secret;
+  if (API_SECRET && apiSecret !== API_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized - Invalid or missing API secret' });
+  }
+
   if (!['in', 'out'].includes(action)) {
     return res.status(400).json({ error: 'Action must be "in" or "out"' });
   }
@@ -251,6 +258,12 @@ app.post('/punch/:action', async (req, res) => {
 
 // Status endpoint
 app.get('/status', async (req, res) => {
+  // Check API secret for manual endpoints
+  const apiSecret = req.headers['x-api-secret'] || req.query.secret;
+  if (API_SECRET && apiSecret !== API_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized - Invalid or missing API secret' });
+  }
+
   try {
     const status = await checkWorkingHours(punchInTimes);
     res.json(status);
@@ -262,6 +275,12 @@ app.get('/status', async (req, res) => {
 
 // Scheduled punch-outs endpoint
 app.get('/scheduled', (req, res) => {
+  // Check API secret for manual endpoints
+  const apiSecret = req.headers['x-api-secret'] || req.query.secret;
+  if (API_SECRET && apiSecret !== API_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized - Invalid or missing API secret' });
+  }
+
   const scheduled = [];
 
   for (const [userId, schedule] of scheduledPunchOuts.entries()) {

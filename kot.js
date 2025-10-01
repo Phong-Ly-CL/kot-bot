@@ -101,10 +101,14 @@ export async function checkWorkingHours(punchInTimesMap) {
     const now = new Date();
     const hoursWorked = (now - punchInTime) / (1000 * 60 * 60);
 
+    // Convert to JST for display
+    const punchInTimeJST = new Date(punchInTime.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+
     return {
       isPunchedIn: true,
       hoursWorked: hoursWorked,
-      punchInTime: punchInTime,
+      punchInTime: punchInTime.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }),
+      punchInTimeISO: punchInTime.toISOString(),
       userId: userId
     };
   }
@@ -113,6 +117,7 @@ export async function checkWorkingHours(punchInTimesMap) {
     isPunchedIn: false,
     hoursWorked: 0,
     punchInTime: null,
+    punchInTimeISO: null,
     userId: null
   };
 }

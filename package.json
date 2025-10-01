@@ -1,7 +1,7 @@
 {
-  "name": "kot-railway-bot",
+  "name": "kot-render-bot",
   "version": "1.0.0",
-  "description": "KING OF TIME Slack bot for Railway deployment",
+  "description": "KING OF TIME Slack bot for Render deployment",
   "main": "index.js",
   "type": "module",
   "scripts": {

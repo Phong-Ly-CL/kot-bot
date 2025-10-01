@@ -83,7 +83,7 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 
 ## 🔒 Security
 
-- Environment variables encrypted on Railway
+- Environment variables encrypted on Render
 - All Slack responses are ephemeral (private)
 - No credentials stored in code
 - Headless browser automation

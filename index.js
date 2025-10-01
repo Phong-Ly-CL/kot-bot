@@ -2,6 +2,7 @@ import express from 'express';
 import { punch, checkWorkingHours } from './kot.js';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -87,7 +88,6 @@ function verifySlackSignature(req, res, next) {
   }
 
   // Verify signature
-  const crypto = require('crypto');
   const sigBasestring = `v0:${timestamp}:${req.rawBody}`;
   const mySignature = 'v0=' + crypto.createHmac('sha256', SLACK_SIGNING_SECRET)
     .update(sigBasestring, 'utf8')

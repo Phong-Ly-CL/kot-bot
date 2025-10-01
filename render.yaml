@@ -13,5 +13,17 @@ services:
         value: false
       - key: PUPPETEER_CACHE_DIR
         value: /opt/render/.cache/puppeteer
+      - key: KOT_ID
+        sync: false
+      - key: KOT_PASS
+        sync: false
+      - key: KOT_URL
+        value: https://s2.kingtime.jp/independent/recorder/personal/
+      - key: AUTO_PUNCH_OUT_ENABLED
+        value: true
+      - key: MAX_WORK_HOURS
+        value: 10
+      - key: SLACK_WEBHOOK_URL
+        sync: false
     healthCheckPath: /ping
     autoDeploy: true

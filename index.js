@@ -28,8 +28,25 @@ app.get('/', (req, res) => {
     features: {
       autoPunchOut: AUTO_PUNCH_OUT_ENABLED,
       maxHours: MAX_WORK_HOURS
-    }
+    },
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
   });
+});
+
+// Keep-alive endpoint for Uptime Robot
+app.get('/keep-alive', (req, res) => {
+  res.json({ 
+    status: 'awake',
+    time: new Date().toISOString(),
+    uptime: process.uptime(),
+    autoPunchOut: AUTO_PUNCH_OUT_ENABLED
+  });
+});
+
+// Ping endpoint (alternative for monitoring services)
+app.get('/ping', (req, res) => {
+  res.send('pong');
 });
 
 // Slack slash command handler

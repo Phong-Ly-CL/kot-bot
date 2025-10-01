@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: kot-slack-bot
+    name: kot-bot
     env: node
     buildCommand: npm ci
     startCommand: npm start

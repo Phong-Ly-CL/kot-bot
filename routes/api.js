@@ -1,5 +1,5 @@
 import express from 'express';
-import { punch, checkWorkingHours } from '../kot.js';
+import { punch, checkWorkingHours } from '../services/kot.js';
 import { verifyApiSecret } from '../middleware/auth.js';
 import { punchInTimes, scheduledPunchOuts } from '../services/scheduler.js';
 import { formatDateTimeJST, formatSecondsToHHMMSS } from '../utils.js';

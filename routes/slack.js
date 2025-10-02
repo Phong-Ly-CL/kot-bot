@@ -1,5 +1,5 @@
 import express from 'express';
-import { punch } from '../kot.js';
+import { punch } from '../services/kot.js';
 import { verifySlackSignature } from '../middleware/auth.js';
 import { punchInTimes, scheduleOutPunch, scheduledPunchOuts, sendSlackNotification } from '../services/scheduler.js';
 import { formatDateTimeJST, formatSecondsToHHMMSS } from '../utils.js';

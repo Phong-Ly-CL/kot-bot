@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer";
-import { formatDateTimeJST, formatSecondsToHHMMSS } from './utils.js';
+import { formatDateTimeJST, formatSecondsToHHMMSS } from '../utils.js';
 
 // Chrome launch configuration for Render
 const launchOptions = {

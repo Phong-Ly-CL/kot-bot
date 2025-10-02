@@ -1,4 +1,4 @@
-import { punch } from '../kot.js';
+import { punch } from './kot.js';
 
 // Store scheduled punch-outs (in-memory, will reset on restart)
 export const scheduledPunchOuts = new Map();

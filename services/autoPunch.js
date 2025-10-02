@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { punch, checkWorkingHours } from '../kot.js';
+import { punch, checkWorkingHours } from './kot.js';
 import { punchInTimes, scheduledPunchOuts, sendSlackNotification } from './scheduler.js';
 
 // Auto punch-in scheduled flag

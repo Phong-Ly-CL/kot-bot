@@ -1,16 +1,17 @@
 # KING OF TIME Render Bot
 
-Express.js Slack bot that automatically punches your KING OF TIME working card with auto punch-out after 10 hours.
+Express.js Slack bot that automatically punches your KING OF TIME working card with auto punch-in and auto punch-out.
 
 ## ✨ Features
 
 - **Slack Commands**: `/punch in`, `/punch out`, `/punch-in`, `/punch-out`
 - **Scheduled Punch-Out**: Schedule punch-out at specific time (e.g., `/punch out @ 19:00`)
+- **Auto Punch-In**: Automatically punches in at random time within configured window (e.g., 08:30-09:30 JST)
 - **Auto Punch-Out**: Automatically punches out after 10 hours (configurable)
 - **Render Deployment**: Free hosting on Render with Uptime Robot monitoring
-- **Slack Notifications**: Get notified when auto/scheduled punch-out happens
+- **Slack Notifications**: Get notified when auto/scheduled punch-in/out happens
 - **Status Checking**: Manual status endpoint to check current work hours
-- **Keep-Alive**: Uptime Robot keeps the bot awake for reliable auto punch-out
+- **Keep-Alive**: Uptime Robot keeps the bot awake for reliable auto features
 
 ## 🚀 Render Deployment
 
@@ -25,10 +26,14 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
    ```
    KOT_ID=your-actual-user-id
    KOT_PASS=your-actual-password
+   AUTO_PUNCH_IN_ENABLED=true
+   AUTO_PUNCH_IN_TIME_START=08:30
+   AUTO_PUNCH_IN_TIME_END=09:30
    AUTO_PUNCH_OUT_ENABLED=true
    MAX_WORK_HOURS=10
    SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
    API_SECRET=your-random-secret-key
+   SLACK_SIGNING_SECRET=your-slack-signing-secret
    ```
 
    Generate a random API secret:
@@ -86,11 +91,14 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 - Schedules persist until server restart
 
 ### Auto Features:
+- **Auto punch-in** at random time within configured window (e.g., 08:30-09:30 JST)
+  - Schedules new random time daily at midnight JST
+  - Skips if already punched in
 - **Auto punch-out** after 10 hours (or your configured limit)
 - **Scheduled punch-out takes priority** over auto punch-out
-- **Slack notifications** when auto/scheduled punch-out happens
+- **Slack notifications** when auto/scheduled punch-in/out happens
 - **Hourly checks** to monitor work hours
-- **In-memory tracking** - punch-in times stored in memory (resets on server restart)
+- **In-memory tracking** - punch-in times and schedules stored in memory (resets on server restart)
 
 ### Manual Endpoints:
 - `GET /` - Health check (public)
@@ -116,6 +124,9 @@ curl https://your-app.onrender.com/status?secret=your-secret
 |----------|-------------|---------|
 | `KOT_ID` | Your KING OF TIME user ID | Required |
 | `KOT_PASS` | Your KING OF TIME password | Required |
+| `AUTO_PUNCH_IN_ENABLED` | Enable auto punch-in | `false` |
+| `AUTO_PUNCH_IN_TIME_START` | Auto punch-in window start time (HH:MM JST) | `08:30` |
+| `AUTO_PUNCH_IN_TIME_END` | Auto punch-in window end time (HH:MM JST) | `09:30` |
 | `AUTO_PUNCH_OUT_ENABLED` | Enable auto punch-out | `false` |
 | `MAX_WORK_HOURS` | Hours before auto punch-out | `10` |
 | `SLACK_WEBHOOK_URL` | Slack webhook for notifications | Optional |
@@ -162,9 +173,10 @@ npm run dev
 ## 📝 Notes
 
 - First deployment may take 2-3 minutes for Puppeteer to install
+- Auto punch-in schedules new random time daily at midnight JST
 - Auto punch-out checks run every hour
 - Uptime Robot keeps the app alive (pings every 10 minutes)
 - Cold starts may take 15-30 seconds if app goes to sleep
 - Keep-alive endpoints: `/ping`, `/keep-alive`, `/`
-- **Important**: Punch-in times are stored in memory and will reset if the server restarts
-- **Important**: Auto punch-out only works if you punch in via this bot (Slack commands or API)
+- **Important**: Punch-in times and schedules are stored in memory and will reset if the server restarts
+- **Important**: Auto punch-out only works if you punch in via this bot (Slack commands, API, or auto punch-in)

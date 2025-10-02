@@ -3,6 +3,7 @@ import { punch, checkWorkingHours } from './kot.js';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import { formatDateTimeJST, formatSecondsToHHMMSS } from './utils.js';
 
 dotenv.config();
 
@@ -53,10 +54,10 @@ app.get('/', (req, res) => {
 
 // Keep-alive endpoint for Uptime Robot
 app.get('/keep-alive', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'awake',
-    time: new Date().toISOString(),
-    uptime: process.uptime(),
+    time: formatDateTimeJST(new Date()),
+    uptime: formatSecondsToHHMMSS(process.uptime()),
     autoPunchOut: AUTO_PUNCH_OUT_ENABLED
   });
 });
@@ -139,11 +140,12 @@ app.post('/slack/punch', verifySlackSignature, async (req, res) => {
           const schedule = scheduledPunchOuts.get(user_id);
           const now = new Date();
           const remainingMs = schedule.targetDate - now;
-          const remainingMin = Math.round(remainingMs / 60000);
+          const remainingSec = Math.floor(remainingMs / 1000);
+          const remainingFormatted = formatSecondsToHHMMSS(remainingSec);
 
           return res.json({
             response_type: 'ephemeral',
-            text: `⏰ You have a scheduled punch-out at ${schedule.time} JST\n📅 Target: ${schedule.targetDate.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' })}\n⏱️ Remaining: ~${remainingMin} minutes`
+            text: `⏰ You have a scheduled punch-out at ${schedule.time} JST\n📅 Target: ${formatDateTimeJST(schedule.targetDate)}\n⏱️ Remaining: ${remainingFormatted}`
           });
         } else {
           return res.json({
@@ -331,8 +333,8 @@ app.get('/scheduled', (req, res) => {
     scheduled.push({
       userId,
       time: schedule.time,
-      targetDate: schedule.targetDate,
-      createdAt: schedule.createdAt
+      targetDate: formatDateTimeJST(schedule.targetDate),
+      createdAt: formatDateTimeJST(schedule.createdAt)
     });
   }
 

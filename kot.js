@@ -1,4 +1,5 @@
 import puppeteer from "puppeteer";
+import { formatDateTimeJST, formatSecondsToHHMMSS } from './utils.js';
 
 // Chrome launch configuration for Render
 const launchOptions = {
@@ -99,16 +100,14 @@ export async function checkWorkingHours(punchInTimesMap) {
   // check if ANY user is punched in and over the limit
   for (const [userId, punchInTime] of punchInTimesMap.entries()) {
     const now = new Date();
-    const hoursWorked = (now - punchInTime) / (1000 * 60 * 60);
-
-    // Convert to JST for display
-    const punchInTimeJST = new Date(punchInTime.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+    const secondsWorked = (now - punchInTime) / 1000;
+    const hoursWorked = secondsWorked / 3600;
 
     return {
       isPunchedIn: true,
       hoursWorked: hoursWorked,
-      punchInTime: punchInTime.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }),
-      punchInTimeISO: punchInTime.toISOString(),
+      workDuration: formatSecondsToHHMMSS(secondsWorked),
+      punchInTime: formatDateTimeJST(punchInTime),
       userId: userId
     };
   }
@@ -116,8 +115,8 @@ export async function checkWorkingHours(punchInTimesMap) {
   return {
     isPunchedIn: false,
     hoursWorked: 0,
+    workDuration: '00:00:00',
     punchInTime: null,
-    punchInTimeISO: null,
     userId: null
   };
 }

@@ -1,16 +1,14 @@
 // Shared utility functions for time formatting
 
 export function formatDateTimeJST(date) {
-  return new Date(date).toLocaleString('en-US', {
-    timeZone: 'Asia/Tokyo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
+  const jstDate = new Date(new Date(date).toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const year = jstDate.getFullYear();
+  const month = String(jstDate.getMonth() + 1).padStart(2, '0');
+  const day = String(jstDate.getDate()).padStart(2, '0');
+  const hours = String(jstDate.getHours()).padStart(2, '0');
+  const minutes = String(jstDate.getMinutes()).padStart(2, '0');
+  const seconds = String(jstDate.getSeconds()).padStart(2, '0');
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
 }
 
 export function formatSecondsToHHMMSS(seconds) {

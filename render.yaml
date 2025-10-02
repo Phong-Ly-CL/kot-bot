@@ -17,6 +17,12 @@ services:
         sync: false
       - key: KOT_URL
         value: https://s2.kingtime.jp/independent/recorder/personal/
+      - key: AUTO_PUNCH_IN_ENABLED
+        value: true
+      - key: AUTO_PUNCH_IN_TIME_START
+        value: 08:30
+      - key: AUTO_PUNCH_IN_TIME_END
+        value: 09:30
       - key: AUTO_PUNCH_OUT_ENABLED
         value: true
       - key: MAX_WORK_HOURS

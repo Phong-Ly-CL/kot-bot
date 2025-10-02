@@ -30,6 +30,9 @@ const KOT_PASS = process.env.KOT_PASS;
 const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
 const AUTO_PUNCH_OUT_ENABLED = process.env.AUTO_PUNCH_OUT_ENABLED === 'true';
 const MAX_WORK_HOURS = parseInt(process.env.MAX_WORK_HOURS) || 10;
+const AUTO_PUNCH_IN_ENABLED = process.env.AUTO_PUNCH_IN_ENABLED === 'true';
+const AUTO_PUNCH_IN_TIME_START = process.env.AUTO_PUNCH_IN_TIME_START || '08:30';
+const AUTO_PUNCH_IN_TIME_END = process.env.AUTO_PUNCH_IN_TIME_END || '09:30';
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 const API_SECRET = process.env.API_SECRET;
 
@@ -41,9 +44,11 @@ const punchInTimes = new Map();
 
 // Health check endpoint
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'KING OF TIME bot is running!',
     features: {
+      autoPunchIn: AUTO_PUNCH_IN_ENABLED,
+      autoPunchInWindow: AUTO_PUNCH_IN_ENABLED ? `${AUTO_PUNCH_IN_TIME_START} - ${AUTO_PUNCH_IN_TIME_END} JST` : null,
       autoPunchOut: AUTO_PUNCH_OUT_ENABLED,
       maxHours: MAX_WORK_HOURS
     },
@@ -438,6 +443,98 @@ function scheduleOutPunch(userId, timeString) {
   };
 }
 
+// Auto punch-in - schedule random time on startup
+let autoPunchInScheduled = false;
+
+if (AUTO_PUNCH_IN_ENABLED) {
+  function scheduleAutoPunchIn() {
+    if (autoPunchInScheduled) {
+      console.log('Auto punch-in already scheduled for today');
+      return;
+    }
+
+    if (!KOT_ID || !KOT_PASS) {
+      console.log('KOT credentials not configured for auto punch-in');
+      return;
+    }
+
+    // Parse start and end times (HH:MM format in JST)
+    const [startHour, startMin] = AUTO_PUNCH_IN_TIME_START.split(':').map(Number);
+    const [endHour, endMin] = AUTO_PUNCH_IN_TIME_END.split(':').map(Number);
+
+    // Calculate time range in minutes
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    // Generate random time within range
+    const randomMinutes = Math.floor(Math.random() * (endMinutes - startMinutes)) + startMinutes;
+    const randomHour = Math.floor(randomMinutes / 60);
+    const randomMin = randomMinutes % 60;
+
+    // Create target time in JST
+    const now = new Date();
+    const jstNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+    const targetTime = new Date(jstNow);
+    targetTime.setHours(randomHour, randomMin, 0, 0);
+
+    // If target time has passed today, skip (will try tomorrow)
+    if (targetTime <= jstNow) {
+      console.log(`Auto punch-in time ${randomHour}:${String(randomMin).padStart(2, '0')} already passed for today`);
+      return;
+    }
+
+    // Calculate delay in milliseconds
+    const delay = targetTime - jstNow;
+    const timeString = `${String(randomHour).padStart(2, '0')}:${String(randomMin).padStart(2, '0')}`;
+
+    console.log(`🎲 Auto punch-in scheduled at ${timeString} JST (in ${Math.round(delay / 60000)} minutes)`);
+
+    setTimeout(async () => {
+      try {
+        console.log(`⏰ Executing auto punch-in at ${timeString} JST`);
+
+        // Check if already punched in
+        const status = await checkWorkingHours(punchInTimes);
+        if (status.isPunchedIn) {
+          console.log('Already punched in - skipping auto punch-in');
+          autoPunchInScheduled = false;
+          return;
+        }
+
+        await punch(KOT_URL, KOT_ID, KOT_PASS, "in");
+
+        // Store punch-in time with 'auto-punch-in' user ID
+        const autoPunchInUserId = 'auto-punch-in';
+        punchInTimes.set(autoPunchInUserId, new Date());
+
+        const message = `✅ Auto punched in at ${timeString} JST`;
+        console.log(message);
+        await sendSlackNotification(message);
+
+        autoPunchInScheduled = false;
+      } catch (error) {
+        console.error('Error in auto punch-in:', error);
+        autoPunchInScheduled = false;
+      }
+    }, delay);
+
+    autoPunchInScheduled = true;
+  }
+
+  // Schedule on startup
+  scheduleAutoPunchIn();
+
+  // Check daily at midnight JST to schedule next day's punch-in
+  cron.schedule('0 0 * * *', () => {
+    console.log('Midnight JST - checking if need to schedule auto punch-in');
+    scheduleAutoPunchIn();
+  }, {
+    timezone: 'Asia/Tokyo'
+  });
+
+  console.log(`Auto punch-in enabled: random time between ${AUTO_PUNCH_IN_TIME_START} and ${AUTO_PUNCH_IN_TIME_END} JST`);
+}
+
 // Auto punch-out cron job - runs every hour
 if (AUTO_PUNCH_OUT_ENABLED) {
   cron.schedule('0 * * * *', async () => {
@@ -487,5 +584,6 @@ if (AUTO_PUNCH_OUT_ENABLED) {
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 KING OF TIME bot running on port ${PORT}`);
+  console.log(`Auto punch-in: ${AUTO_PUNCH_IN_ENABLED ? 'ENABLED' : 'DISABLED'}`);
   console.log(`Auto punch-out: ${AUTO_PUNCH_OUT_ENABLED ? 'ENABLED' : 'DISABLED'}`);
 });

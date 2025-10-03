@@ -42,6 +42,14 @@ export function scheduleAutoPunchIn() {
   // Create target time in JST
   const now = new Date();
   const jstNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+
+  // Skip auto punch-in on weekends (Saturday = 6, Sunday = 0)
+  const dayOfWeek = jstNow.getDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    console.log('Auto punch-in skipped - weekend (Saturday or Sunday)');
+    return;
+  }
+
   const targetTime = new Date(jstNow);
   targetTime.setHours(randomHour, randomMin, 0, 0);
 

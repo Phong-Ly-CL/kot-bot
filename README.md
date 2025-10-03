@@ -31,6 +31,8 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
    AUTO_PUNCH_IN_TIME_END=09:30
    AUTO_PUNCH_OUT_ENABLED=true
    MAX_WORK_HOURS=10
+   AUTO_PUNCH_OUT_DELAY_MIN=0
+   AUTO_PUNCH_OUT_DELAY_MAX=30
    SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
    API_SECRET=your-random-secret-key
    SLACK_SIGNING_SECRET=your-slack-signing-secret
@@ -94,10 +96,12 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 - **Auto punch-in** at random time within configured window (e.g., 08:30-09:30 JST)
   - Schedules new random time daily at midnight JST
   - Skips if already punched in
+  - Skips on weekends (Saturday and Sunday)
 - **Auto punch-out** after 10 hours (or your configured limit)
+  - Random delay (0-30 minutes by default) after reaching max hours
+  - Checks every 5 minutes for more responsive detection
 - **Scheduled punch-out takes priority** over auto punch-out
 - **Slack notifications** when auto/scheduled punch-in/out happens
-- **Hourly checks** to monitor work hours
 - **In-memory tracking** - punch-in times and schedules stored in memory (resets on server restart)
 
 ### Manual Endpoints:
@@ -129,6 +133,8 @@ curl https://your-app.onrender.com/status?secret=your-secret
 | `AUTO_PUNCH_IN_TIME_END` | Auto punch-in window end time (HH:MM JST) | `09:30` |
 | `AUTO_PUNCH_OUT_ENABLED` | Enable auto punch-out | `false` |
 | `MAX_WORK_HOURS` | Hours before auto punch-out | `10` |
+| `AUTO_PUNCH_OUT_DELAY_MIN` | Minimum delay (minutes) before auto punch-out | `0` |
+| `AUTO_PUNCH_OUT_DELAY_MAX` | Maximum delay (minutes) before auto punch-out | `30` |
 | `SLACK_WEBHOOK_URL` | Slack webhook for notifications | Optional |
 | `SLACK_SIGNING_SECRET` | Slack signing secret for request verification | Recommended |
 | `API_SECRET` | Secret key for manual API endpoints | Optional |
@@ -174,7 +180,9 @@ npm run dev
 
 - First deployment may take 2-3 minutes for Puppeteer to install
 - Auto punch-in schedules new random time daily at midnight JST
-- Auto punch-out checks run every hour
+- Auto punch-in skips weekends (Saturday and Sunday)
+- Auto punch-out checks run every 5 minutes
+- Auto punch-out adds random delay (0-30 min) after reaching max hours
 - Uptime Robot keeps the app alive (pings every 10 minutes)
 - Cold starts may take 15-30 seconds if app goes to sleep
 - Keep-alive endpoints: `/ping`, `/keep-alive`, `/`

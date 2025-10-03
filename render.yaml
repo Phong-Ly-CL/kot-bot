@@ -27,6 +27,10 @@ services:
         value: true
       - key: MAX_WORK_HOURS
         value: 10
+      - key: AUTO_PUNCH_OUT_DELAY_MIN
+        value: 0
+      - key: AUTO_PUNCH_OUT_DELAY_MAX
+        value: 30
       - key: SLACK_WEBHOOK_URL
         sync: false
       - key: API_SECRET

@@ -97,6 +97,7 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
   - Schedules new random time daily at midnight JST
   - Skips if already punched in
   - Skips on weekends (Saturday and Sunday)
+  - Skips on Japanese public holidays
 - **Auto punch-out** after 10 hours (or your configured limit)
   - Random delay (0-30 minutes by default) after reaching max hours
   - Checks every 5 minutes for more responsive detection
@@ -180,7 +181,7 @@ npm run dev
 
 - First deployment may take 2-3 minutes for Puppeteer to install
 - Auto punch-in schedules new random time daily at midnight JST
-- Auto punch-in skips weekends (Saturday and Sunday)
+- Auto punch-in skips weekends (Saturday and Sunday) and Japanese public holidays
 - Auto punch-out checks run every 5 minutes
 - Auto punch-out adds random delay (0-30 min) after reaching max hours
 - Uptime Robot keeps the app alive (pings every 10 minutes)

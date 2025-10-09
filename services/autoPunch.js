@@ -1,6 +1,8 @@
 import cron from 'node-cron';
 import { punch, checkWorkingHours } from './kot.js';
 import { punchInTimes, scheduledPunchOuts, sendSlackNotification } from './scheduler.js';
+import pkg from '@holiday-jp/holiday_jp';
+const { isHoliday } = pkg;
 
 // Auto punch-in scheduled flag
 let autoPunchInScheduled = false;
@@ -47,6 +49,12 @@ export function scheduleAutoPunchIn() {
   const dayOfWeek = jstNow.getDay();
   if (dayOfWeek === 0 || dayOfWeek === 6) {
     console.log('Auto punch-in skipped - weekend (Saturday or Sunday)');
+    return;
+  }
+
+  // Skip auto punch-in on Japanese public holidays
+  if (isHoliday(jstNow)) {
+    console.log('Auto punch-in skipped - Japanese public holiday');
     return;
   }
 

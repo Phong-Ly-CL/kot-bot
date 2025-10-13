@@ -3,13 +3,9 @@ import dotenv from 'dotenv';
 import apiRoutes from './routes/api.js';
 import slackRoutes from './routes/slack.js';
 import { initAutoPunchIn, initAutoPunchOut } from './services/autoPunch.js';
-import { setupGlobalLogger, logger } from './utils/logger.js';
-import { initLogCleanup } from './services/logCleanup.js';
+import { logger } from './utils/logger.js';
 
 dotenv.config();
-
-// Setup global logger to track log levels
-setupGlobalLogger();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,9 +30,6 @@ app.use('/slack', slackRoutes);
 // Initialize auto punch features
 initAutoPunchIn();
 initAutoPunchOut();
-
-// Initialize log cleanup
-initLogCleanup();
 
 // Start server
 app.listen(PORT, () => {

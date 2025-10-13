@@ -55,12 +55,6 @@ export const LOG_MESSAGES = {
   MAN004: 'Stored punch-in time for manual user: {{timestamp}}',
   MAN005: 'Cleared punch-in time for manual user',
 
-  // Log Cleanup (LOG)
-  LOG001: '📊 Log stats before cleanup: {{audit}} audit, {{info}} info, {{warn}} warn, {{error}} error',
-  LOG002: '✨ Hourly log cleanup completed: {{cleared}} logs cleared, {{retained}} retained',
-  LOG003: '🕐 Hourly log cleanup scheduler initialized - will clear audit/info logs every hour',
-  LOG004: '🧹 Cleared {{cleared}} audit/info level logs. Retained {{retained}} warning/error logs.',
-
   // Slack Notifications (SLACK)
   SLACK001: 'Failed to send Slack notification: {{error}}',
 

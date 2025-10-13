@@ -47,24 +47,34 @@ export const logger = {
 
   // Structured logging with message codes
   logCode: (level, code, params = {}) => {
-    const formattedMessage = formatLogMessage(code, params);
+    const formattedMessage = formatLogMessage(code, params, false); // false = don't include code prefix
     const logLevel = level.toUpperCase();
 
+    // Store the log with code for internal tracking
+    const logEntry = {
+      level: LOG_LEVELS[logLevel] || LOG_LEVELS.AUDIT,
+      message: formattedMessage,
+      code: code, // Store code separately for tracking
+      timestamp: new Date()
+    };
+    logs.push(logEntry);
+
+    // Output message without code prefix
     switch (logLevel) {
       case 'AUDIT':
-        logger.audit(formattedMessage);
+        originalConsole.log(formattedMessage);
         break;
       case 'INFO':
-        logger.info(formattedMessage);
+        originalConsole.info(formattedMessage);
         break;
       case 'WARN':
-        logger.warn(formattedMessage);
+        originalConsole.warn(formattedMessage);
         break;
       case 'ERROR':
-        logger.error(formattedMessage);
+        originalConsole.error(formattedMessage);
         break;
       default:
-        logger.audit(formattedMessage);
+        originalConsole.log(formattedMessage);
     }
   }
 };

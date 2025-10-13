@@ -78,7 +78,7 @@ export const LOG_MESSAGES = {
 };
 
 // Helper function to format log message with parameters
-export function formatLogMessage(code, params = {}) {
+export function formatLogMessage(code, params = {}, includeCode = false) {
   let message = LOG_MESSAGES[code];
 
   if (!message) {
@@ -91,5 +91,6 @@ export function formatLogMessage(code, params = {}) {
     message = message.replace(regex, params[key]);
   });
 
-  return `${code}: ${message}`;
+  // Return with or without code prefix based on includeCode parameter
+  return includeCode ? `${code}: ${message}` : message;
 }

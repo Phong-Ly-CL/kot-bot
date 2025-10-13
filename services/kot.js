@@ -1,5 +1,6 @@
 import puppeteer from "puppeteer";
 import { formatDateTimeJST, formatSecondsToHHMMSS } from '../utils.js';
+import { logger } from '../utils/logger.js';
 
 // Chrome launch configuration for Render
 const launchOptions = {
@@ -36,7 +37,7 @@ export async function punch(url, userId, password, action) {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
-    console.log("Logging in...");
+    logger.logCode('audit', 'KOT001');
 
     // Wait for login form to be ready
     await page.waitForSelector(SELECTORS.id, { timeout: 10000 });
@@ -58,7 +59,7 @@ export async function punch(url, userId, password, action) {
       page.click(SELECTORS.loginButton),
     ]);
 
-    console.log("Login successful");
+    logger.logCode('audit', 'KOT002');
 
     // Click punch in/out button
     const punchSelector =
@@ -68,7 +69,7 @@ export async function punch(url, userId, password, action) {
         ? NOTIFICATION_CONTENT.clockIn
         : NOTIFICATION_CONTENT.clockOut;
 
-    console.log(`Clicking ${action} button...`);
+    logger.logCode('audit', 'KOT003', { action });
     await Promise.all([
       page.waitForFunction(
         (selector, content) => {
@@ -82,10 +83,10 @@ export async function punch(url, userId, password, action) {
       page.click(punchSelector),
     ]);
 
-    console.log(`${action.toUpperCase()} completed for ${userId}`);
+    logger.logCode('audit', 'KOT004', { action: action.toUpperCase(), userId });
     return true;
   } catch (error) {
-    console.error(`Error during ${action} punch:`, error);
+    logger.logCode('error', 'ERR001', { action, error: error.message });
     throw error;
   } finally {
     await browser.close();

@@ -3,8 +3,13 @@ import dotenv from 'dotenv';
 import apiRoutes from './routes/api.js';
 import slackRoutes from './routes/slack.js';
 import { initAutoPunchIn, initAutoPunchOut } from './services/autoPunch.js';
+import { setupGlobalLogger, logger } from './utils/logger.js';
+import { initLogCleanup } from './services/logCleanup.js';
 
 dotenv.config();
+
+// Setup global logger to track log levels
+setupGlobalLogger();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,12 +35,15 @@ app.use('/slack', slackRoutes);
 initAutoPunchIn();
 initAutoPunchOut();
 
+// Initialize log cleanup
+initLogCleanup();
+
 // Start server
 app.listen(PORT, () => {
   const AUTO_PUNCH_IN_ENABLED = process.env.AUTO_PUNCH_IN_ENABLED === 'true';
   const AUTO_PUNCH_OUT_ENABLED = process.env.AUTO_PUNCH_OUT_ENABLED === 'true';
 
-  console.log(`🚀 KING OF TIME bot running on port ${PORT}`);
-  console.log(`Auto punch-in: ${AUTO_PUNCH_IN_ENABLED ? 'ENABLED' : 'DISABLED'}`);
-  console.log(`Auto punch-out: ${AUTO_PUNCH_OUT_ENABLED ? 'ENABLED' : 'DISABLED'}`);
+  logger.logCode('audit', 'SYS001', { port: PORT });
+  logger.logCode('audit', 'SYS002', { status: AUTO_PUNCH_IN_ENABLED ? 'ENABLED' : 'DISABLED' });
+  logger.logCode('audit', 'SYS003', { status: AUTO_PUNCH_OUT_ENABLED ? 'ENABLED' : 'DISABLED' });
 });

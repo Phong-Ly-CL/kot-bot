@@ -3,6 +3,7 @@ import { punch } from '../services/kot.js';
 import { verifySlackSignature } from '../middleware/auth.js';
 import { punchInTimes, scheduleOutPunch, scheduledPunchOuts, sendSlackNotification } from '../services/scheduler.js';
 import { formatDateTimeJST, formatSecondsToHHMMSS } from '../utils.js';
+import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -146,15 +147,15 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
     // Perform punch operation
     try {
       await punch(KOT_URL, KOT_ID, KOT_PASS, action);
-      console.log(`Successfully punched ${action} for user ${user_id}`);
+      logger.logCode('audit', 'MAN001', { action, userId: user_id });
 
       // Store punch-in time or clear it on punch-out
       if (action === 'in') {
         punchInTimes.set(user_id, new Date());
-        console.log(`Stored punch-in time for user ${user_id}: ${new Date().toISOString()}`);
+        logger.logCode('audit', 'MAN002', { userId: user_id, timestamp: new Date().toISOString() });
       } else if (action === 'out') {
         punchInTimes.delete(user_id);
-        console.log(`Cleared punch-in time for user ${user_id}`);
+        logger.logCode('audit', 'MAN003', { userId: user_id });
       }
 
       // Send follow-up notification if webhook is configured
@@ -162,7 +163,7 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
         await sendSlackNotification(`✅ Successfully punched ${action} ${action === 'in' ? 'to' : 'from'} KING OF TIME!`);
       }
     } catch (error) {
-      console.error(`Punch ${action} error:`, error);
+      logger.logCode('error', 'ERR006', { action, error: error.message });
 
       if (SLACK_WEBHOOK_URL) {
         await sendSlackNotification(`❌ Failed to punch ${action}. Please try again.`);
@@ -170,7 +171,7 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Error processing Slack request:', error);
+    logger.logCode('error', 'ERR007', { error: error.message });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

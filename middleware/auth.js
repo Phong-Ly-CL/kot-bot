@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { logger } from '../utils/logger.js';
 
 // API Secret authentication middleware
 export function verifyApiSecret(req, res, next) {
@@ -22,7 +23,7 @@ export function verifySlackSignature(req, res, next) {
   const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
 
   if (!SLACK_SIGNING_SECRET) {
-    console.warn('WARNING: SLACK_SIGNING_SECRET not set - skipping signature verification');
+    logger.logCode('warn', 'AUTH003');
     return next();
   }
 

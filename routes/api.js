@@ -3,6 +3,7 @@ import { punch, checkWorkingHours } from '../services/kot.js';
 import { verifyApiSecret } from '../middleware/auth.js';
 import { punchInTimes, scheduledPunchOuts } from '../services/scheduler.js';
 import { formatDateTimeJST, formatSecondsToHHMMSS } from '../utils.js';
+import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -66,15 +67,15 @@ router.post('/punch/:action', verifyApiSecret, async (req, res) => {
     const defaultUserId = 'manual-user';
     if (action === 'in') {
       punchInTimes.set(defaultUserId, new Date());
-      console.log(`Stored punch-in time for manual user: ${new Date().toISOString()}`);
+      logger.logCode('audit', 'MAN004', { timestamp: new Date().toISOString() });
     } else if (action === 'out') {
       punchInTimes.delete(defaultUserId);
-      console.log(`Cleared punch-in time for manual user`);
+      logger.logCode('audit', 'MAN005');
     }
 
     res.json({ success: true, message: `Punched ${action} successfully` });
   } catch (error) {
-    console.error(`Manual punch ${action} error:`, error);
+    logger.logCode('error', 'ERR008', { action, error: error.message });
     res.status(500).json({ error: `Failed to punch ${action}` });
   }
 });
@@ -85,7 +86,7 @@ router.get('/status', verifyApiSecret, async (req, res) => {
     const status = await checkWorkingHours(punchInTimes);
     res.json(status);
   } catch (error) {
-    console.error('Status check error:', error);
+    logger.logCode('error', 'ERR009', { error: error.message });
     res.status(500).json({ error: 'Failed to check status' });
   }
 });

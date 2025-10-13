@@ -1,4 +1,5 @@
 import { punch } from './kot.js';
+import { logger } from '../utils/logger.js';
 
 // Store scheduled punch-outs (in-memory, will reset on restart)
 export const scheduledPunchOuts = new Map();
@@ -19,10 +20,10 @@ export async function sendSlackNotification(message) {
     });
 
     if (!response.ok) {
-      console.error('Failed to send Slack notification:', response.statusText);
+      logger.logCode('error', 'SLACK001', { error: response.statusText });
     }
   } catch (error) {
-    console.error('Error sending Slack notification:', error);
+    logger.logCode('error', 'ERR010', { error: error.message });
   }
 }
 
@@ -74,15 +75,15 @@ export function scheduleOutPunch(userId, timeString) {
 
   // Schedule the punch-out
   const timeoutId = setTimeout(async () => {
-    console.log(`Executing scheduled punch-out for user ${userId}`);
+    logger.logCode('audit', 'SCH001', { userId });
 
     try {
       await punch(KOT_URL, KOT_ID, KOT_PASS, 'out');
-      console.log(`Scheduled punch-out successful for user ${userId}`);
+      logger.logCode('audit', 'SCH002', { userId });
 
       await sendSlackNotification(`✅ Scheduled punch-out completed at ${timeString} JST`);
     } catch (error) {
-      console.error(`Scheduled punch-out failed for user ${userId}:`, error);
+      logger.logCode('error', 'ERR005', { userId, error: error.message });
       await sendSlackNotification(`❌ Scheduled punch-out failed at ${timeString} JST`);
     }
 

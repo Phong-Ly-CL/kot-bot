@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { punch, checkWorkingHours } from './kot.js';
 import { punchInTimes, scheduledPunchOuts, sendSlackNotification } from './scheduler.js';
+import { logger } from '../utils/logger.js';
 import pkg from '@holiday-jp/holiday_jp';
 const { isHoliday } = pkg;
 
@@ -19,12 +20,12 @@ export function scheduleAutoPunchIn() {
   if (!AUTO_PUNCH_IN_ENABLED) return;
 
   if (autoPunchInScheduled) {
-    console.log('Auto punch-in already scheduled for today');
+    logger.logCode('audit', 'APN_IN001');
     return;
   }
 
   if (!KOT_ID || !KOT_PASS) {
-    console.log('KOT credentials not configured for auto punch-in');
+    logger.logCode('audit', 'AUTH001');
     return;
   }
 
@@ -48,13 +49,14 @@ export function scheduleAutoPunchIn() {
   // Skip auto punch-in on weekends (Saturday = 6, Sunday = 0)
   const dayOfWeek = jstNow.getDay();
   if (dayOfWeek === 0 || dayOfWeek === 6) {
-    console.log('Auto punch-in skipped - weekend (Saturday or Sunday)');
+    const dayName = dayOfWeek === 0 ? 'Sunday' : 'Saturday';
+    logger.logCode('audit', 'APN_IN002', { day: dayName });
     return;
   }
 
   // Skip auto punch-in on Japanese public holidays
   if (isHoliday(jstNow)) {
-    console.log('Auto punch-in skipped - Japanese public holiday');
+    logger.logCode('audit', 'APN_IN003');
     return;
   }
 
@@ -62,25 +64,25 @@ export function scheduleAutoPunchIn() {
   targetTime.setHours(randomHour, randomMin, 0, 0);
 
   // If target time has passed today, skip (will try tomorrow)
+  const timeString = `${String(randomHour).padStart(2, '0')}:${String(randomMin).padStart(2, '0')}`;
   if (targetTime <= jstNow) {
-    console.log(`Auto punch-in time ${randomHour}:${String(randomMin).padStart(2, '0')} already passed for today`);
+    logger.logCode('audit', 'APN_IN004', { time: timeString });
     return;
   }
 
   // Calculate delay in milliseconds
   const delay = targetTime - jstNow;
-  const timeString = `${String(randomHour).padStart(2, '0')}:${String(randomMin).padStart(2, '0')}`;
 
-  console.log(`🎲 Auto punch-in scheduled at ${timeString} JST (in ${Math.round(delay / 60000)} minutes)`);
+  logger.logCode('audit', 'APN_IN005', { time: timeString, minutes: Math.round(delay / 60000) });
 
   setTimeout(async () => {
     try {
-      console.log(`⏰ Executing auto punch-in at ${timeString} JST`);
+      logger.logCode('audit', 'APN_IN006', { time: timeString });
 
       // Check if already punched in
       const status = await checkWorkingHours(punchInTimes);
       if (status.isPunchedIn) {
-        console.log('Already punched in - skipping auto punch-in');
+        logger.logCode('audit', 'APN_IN007');
         autoPunchInScheduled = false;
         return;
       }
@@ -91,13 +93,12 @@ export function scheduleAutoPunchIn() {
       const autoPunchInUserId = 'auto-punch-in';
       punchInTimes.set(autoPunchInUserId, new Date());
 
-      const message = `✅ Auto punched in at ${timeString} JST`;
-      console.log(message);
-      await sendSlackNotification(message);
+      logger.logCode('audit', 'APN_IN008', { time: timeString });
+      await sendSlackNotification(`✅ Auto punched in at ${timeString} JST`);
 
       autoPunchInScheduled = false;
     } catch (error) {
-      console.error('Error in auto punch-in:', error);
+      logger.logCode('error', 'ERR002', { error: error.message });
       autoPunchInScheduled = false;
     }
   }, delay);
@@ -118,13 +119,13 @@ export function initAutoPunchIn() {
 
   // Check daily at midnight JST to schedule next day's punch-in
   cron.schedule('0 0 * * *', () => {
-    console.log('Midnight JST - checking if need to schedule auto punch-in');
+    logger.logCode('audit', 'APN_IN009');
     scheduleAutoPunchIn();
   }, {
     timezone: 'Asia/Tokyo'
   });
 
-  console.log(`Auto punch-in enabled: random time between ${AUTO_PUNCH_IN_TIME_START} and ${AUTO_PUNCH_IN_TIME_END} JST`);
+  logger.logCode('audit', 'APN_IN010', { start: AUTO_PUNCH_IN_TIME_START, end: AUTO_PUNCH_IN_TIME_END });
 }
 
 // Track if auto punch-out is scheduled
@@ -143,10 +144,10 @@ export function initAutoPunchOut() {
   if (!AUTO_PUNCH_OUT_ENABLED) return;
 
   cron.schedule('*/5 * * * *', async () => {
-    console.log('Running auto punch-out check...');
+    logger.logCode('audit', 'APN_OUT001');
 
     if (!KOT_ID || !KOT_PASS) {
-      console.log('KOT credentials not configured for auto punch-out');
+      logger.logCode('audit', 'AUTH002');
       return;
     }
 
@@ -156,13 +157,13 @@ export function initAutoPunchOut() {
       if (status.isPunchedIn && status.hoursWorked >= MAX_WORK_HOURS) {
         // Check if there's a scheduled punch-out - if yes, respect it
         if (scheduledPunchOuts.size > 0) {
-          console.log(`Worked ${status.hoursWorked.toFixed(2)} hours, but scheduled punch-out exists - skipping auto punch-out`);
+          logger.logCode('audit', 'APN_OUT002', { hours: status.hoursWorked.toFixed(2) });
           return;
         }
 
         // Check if auto punch-out is already scheduled
         if (autoPunchOutScheduled) {
-          console.log('Auto punch-out already scheduled');
+          logger.logCode('audit', 'APN_OUT003');
           return;
         }
 
@@ -170,7 +171,7 @@ export function initAutoPunchOut() {
         const delayMinutes = Math.floor(Math.random() * (AUTO_PUNCH_OUT_DELAY_MAX - AUTO_PUNCH_OUT_DELAY_MIN + 1)) + AUTO_PUNCH_OUT_DELAY_MIN;
         const delayMs = delayMinutes * 60 * 1000;
 
-        console.log(`Worked ${status.hoursWorked.toFixed(2)} hours - scheduling auto punch-out in ${delayMinutes} minutes`);
+        logger.logCode('audit', 'APN_OUT004', { hours: status.hoursWorked.toFixed(2), minutes: delayMinutes });
         autoPunchOutScheduled = true;
 
         setTimeout(async () => {
@@ -179,13 +180,13 @@ export function initAutoPunchOut() {
             const currentStatus = await checkWorkingHours(punchInTimes);
 
             if (!currentStatus.isPunchedIn) {
-              console.log('Already punched out - skipping auto punch-out');
+              logger.logCode('audit', 'APN_OUT005');
               autoPunchOutScheduled = false;
               return;
             }
 
             if (scheduledPunchOuts.size > 0) {
-              console.log('Scheduled punch-out exists - skipping auto punch-out');
+              logger.logCode('audit', 'APN_OUT006');
               autoPunchOutScheduled = false;
               return;
             }
@@ -197,29 +198,28 @@ export function initAutoPunchOut() {
               punchInTimes.delete(currentStatus.userId);
             }
 
-            const message = `🚨 Auto punched out after ${currentStatus.hoursWorked.toFixed(2)} hours of work`;
-            console.log(message);
+            logger.logCode('audit', 'APN_OUT007', { hours: currentStatus.hoursWorked.toFixed(2) });
 
-            await sendSlackNotification(message);
+            await sendSlackNotification(`🚨 Auto punched out after ${currentStatus.hoursWorked.toFixed(2)} hours of work`);
             autoPunchOutScheduled = false;
           } catch (error) {
-            console.error('Error executing auto punch-out:', error);
+            logger.logCode('error', 'ERR003', { error: error.message });
             autoPunchOutScheduled = false;
           }
         }, delayMs);
 
       } else if (status.isPunchedIn) {
-        console.log(`Currently punched in for ${status.hoursWorked.toFixed(2)} hours (under ${MAX_WORK_HOURS}h limit)`);
+        logger.logCode('audit', 'APN_OUT008', { hours: status.hoursWorked.toFixed(2), max: MAX_WORK_HOURS });
       } else {
-        console.log('Not currently punched in');
+        logger.logCode('audit', 'APN_OUT009');
       }
 
     } catch (error) {
-      console.error('Error in auto punch-out check:', error);
+      logger.logCode('error', 'ERR004', { error: error.message });
     }
   }, {
     timezone: 'Asia/Tokyo'
   });
 
-  console.log(`Auto punch-out enabled: will punch out after ${MAX_WORK_HOURS} hours (with ${AUTO_PUNCH_OUT_DELAY_MIN}-${AUTO_PUNCH_OUT_DELAY_MAX} min random delay)`);
+  logger.logCode('audit', 'APN_OUT010', { maxHours: MAX_WORK_HOURS, minDelay: AUTO_PUNCH_OUT_DELAY_MIN, maxDelay: AUTO_PUNCH_OUT_DELAY_MAX });
 }

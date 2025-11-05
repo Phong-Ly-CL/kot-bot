@@ -77,7 +77,7 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 - `/punch in` - Clock in immediately
 - `/punch out` - Clock out immediately
 - `/punch out @ 19:00` - Schedule punch-out at 19:00 JST
-- `/punch status` - View your scheduled punch-out
+- `/punch status` - View punch-in time, work duration, and scheduled punch-out
 - `/punch remind HH:MM` - Manually set punch-in time (e.g., `/punch remind 09:00`)
 - `/punch cancel` - Cancel scheduled punch-out
 - `/punch-in` - Clock in (dedicated command)
@@ -91,6 +91,13 @@ Express.js Slack bot that automatically punches your KING OF TIME working card w
 - Useful when server restarts and loses in-memory punch-in data
 - The bot will calculate your work duration and trigger auto punch-out correctly
 - Time must be in the past (earlier than current time)
+- **Auto punch-out**: If work duration exceeds MAX_WORK_HOURS when setting remind time, bot will punch you out immediately
+
+### Status Command:
+- Use `/punch status` to check your current status
+- Shows punch-in time and work duration if you're punched in (according to bot memory)
+- Shows scheduled punch-out time and countdown if scheduled
+- Helpful reminder to use `/punch remind HH:MM` if bot lost your punch-in data
 
 ### Scheduled Punch-Out:
 - Use `@ HH:MM` format to schedule punch-out (JST timezone)

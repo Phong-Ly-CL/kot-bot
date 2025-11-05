@@ -48,6 +48,22 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
 
       // Check for status: /punch status
       if (action === 'status') {
+        let statusText = '';
+
+        // Check if user has punched in
+        if (punchInTimes.has(user_id)) {
+          const punchInTime = punchInTimes.get(user_id);
+          const now = new Date();
+          const secondsWorked = (now - punchInTime) / 1000;
+          const hoursWorked = secondsWorked / 3600;
+          const workDuration = formatSecondsToHHMMSS(secondsWorked);
+
+          statusText += `✅ Punched in at: ${formatDateTimeJST(punchInTime)}\n⏱️ Work duration: ${workDuration} (${hoursWorked.toFixed(2)} hours)\n💡 Auto punch-out after ${MAX_WORK_HOURS} hours\n\n`;
+        } else {
+          statusText += `❌ Not currently punched in (according to bot memory)\n💡 Use \`/punch remind HH:MM\` if you punched in but bot lost the data\n\n`;
+        }
+
+        // Check for scheduled punch-out
         if (scheduledPunchOuts.has(user_id)) {
           const schedule = scheduledPunchOuts.get(user_id);
           const now = new Date();
@@ -55,16 +71,15 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
           const remainingSec = Math.floor(remainingMs / 1000);
           const remainingFormatted = formatSecondsToHHMMSS(remainingSec);
 
-          return res.json({
-            response_type: 'ephemeral',
-            text: `⏰ You have a scheduled punch-out at ${schedule.time} JST\n📅 Target: ${formatDateTimeJST(schedule.targetDate)}\n⏱️ Remaining: ${remainingFormatted}`
-          });
+          statusText += `⏰ Scheduled punch-out at ${schedule.time} JST\n📅 Target: ${formatDateTimeJST(schedule.targetDate)}\n⏱️ Remaining: ${remainingFormatted}`;
         } else {
-          return res.json({
-            response_type: 'ephemeral',
-            text: "ℹ️ No scheduled punch-out found"
-          });
+          statusText += `ℹ️ No scheduled punch-out found`;
         }
+
+        return res.json({
+          response_type: 'ephemeral',
+          text: statusText
+        });
       }
 
       // Check for remind: /punch remind HH:MM
@@ -102,14 +117,42 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
             });
           }
 
-          // Store the punch-in time
-          punchInTimes.set(user_id, punchInTime);
-          logger.logCode('audit', 'MAN004', { userId: user_id, reminderTime: timeStr, timestamp: punchInTime.toISOString() });
-
           // Calculate hours worked
           const secondsWorked = (jstNow - punchInTime) / 1000;
           const hoursWorked = secondsWorked / 3600;
           const workDuration = formatSecondsToHHMMSS(secondsWorked);
+
+          // Check if work duration exceeds MAX_WORK_HOURS
+          if (hoursWorked >= MAX_WORK_HOURS) {
+            // Send immediate response
+            res.json({
+              response_type: 'ephemeral',
+              text: `⚠️ Work duration (${workDuration} / ${hoursWorked.toFixed(2)} hours) exceeds ${MAX_WORK_HOURS} hours!\n⏰ Punching out now...`
+            });
+
+            // Punch out immediately
+            try {
+              await punch(KOT_URL, KOT_ID, KOT_PASS, "out");
+              logger.logCode('audit', 'MAN005', { userId: user_id, reminderTime: timeStr, hoursWorked: hoursWorked.toFixed(2) });
+
+              // Send follow-up notification
+              if (SLACK_WEBHOOK_URL) {
+                await sendSlackNotification(`🚨 Auto punched out after setting remind time (${workDuration} / ${hoursWorked.toFixed(2)} hours)`);
+              }
+            } catch (error) {
+              logger.logCode('error', 'ERR008', { action: 'remind-auto-punch-out', error: error.message });
+
+              if (SLACK_WEBHOOK_URL) {
+                await sendSlackNotification(`❌ Failed to auto punch-out after remind. Please punch out manually.`);
+              }
+            }
+
+            return;
+          }
+
+          // Store the punch-in time (only if not auto-punched-out)
+          punchInTimes.set(user_id, punchInTime);
+          logger.logCode('audit', 'MAN004', { userId: user_id, reminderTime: timeStr, timestamp: punchInTime.toISOString() });
 
           return res.json({
             response_type: 'ephemeral',

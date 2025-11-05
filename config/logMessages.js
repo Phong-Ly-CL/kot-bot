@@ -52,8 +52,8 @@ export const LOG_MESSAGES = {
   MAN001: 'Successfully punched {{action}} for user {{userId}}',
   MAN002: 'Stored punch-in time for user {{userId}}: {{timestamp}}',
   MAN003: 'Cleared punch-in time for user {{userId}}',
-  MAN004: 'Stored punch-in time for manual user: {{timestamp}}',
-  MAN005: 'Cleared punch-in time for manual user',
+  MAN004: 'User {{userId}} set remind time {{reminderTime}} - punch-in stored: {{timestamp}}',
+  MAN005: 'User {{userId}} reminded time {{reminderTime}} - auto punched out after {{hoursWorked}} hours',
 
   // Slack Notifications (SLACK)
   SLACK001: 'Failed to send Slack notification: {{error}}',
@@ -66,7 +66,7 @@ export const LOG_MESSAGES = {
   ERR005: 'Scheduled punch-out failed for user {{userId}}: {{error}}',
   ERR006: 'Punch {{action}} error: {{error}}',
   ERR007: 'Error processing Slack request: {{error}}',
-  ERR008: 'Manual punch {{action}} error: {{error}}',
+  ERR008: 'Remind auto punch-out failed for {{action}}: {{error}}',
   ERR009: 'Status check error: {{error}}',
   ERR010: 'Error sending Slack notification: {{error}}'
 };

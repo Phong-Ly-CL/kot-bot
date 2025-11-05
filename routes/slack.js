@@ -124,6 +124,14 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
 
           // Check if work duration exceeds MAX_WORK_HOURS
           if (hoursWorked >= MAX_WORK_HOURS) {
+            // Check credentials before attempting to punch out
+            if (!KOT_ID || !KOT_PASS) {
+              return res.json({
+                response_type: 'ephemeral',
+                text: `⚠️ Work duration (${workDuration} / ${hoursWorked.toFixed(2)} hours) exceeds ${MAX_WORK_HOURS} hours!\n❌ But KING OF TIME credentials are not configured, cannot auto punch-out.\n💡 Please punch out manually.`
+              });
+            }
+
             // Send immediate response
             res.json({
               response_type: 'ephemeral',
@@ -132,7 +140,9 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
 
             // Punch out immediately
             try {
+              console.log(`[REMIND] Auto punching out user ${user_id} - worked ${hoursWorked.toFixed(2)} hours`);
               await punch(KOT_URL, KOT_ID, KOT_PASS, "out");
+              console.log(`[REMIND] Successfully punched out user ${user_id}`);
               logger.logCode('audit', 'MAN005', { userId: user_id, reminderTime: timeStr, hoursWorked: hoursWorked.toFixed(2) });
 
               // Send follow-up notification
@@ -140,10 +150,11 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
                 await sendSlackNotification(`🚨 Auto punched out after setting remind time (${workDuration} / ${hoursWorked.toFixed(2)} hours)`);
               }
             } catch (error) {
-              logger.logCode('error', 'ERR008', { action: 'remind-auto-punch-out', error: error.message });
+              console.error(`[REMIND] Failed to auto punch-out:`, error);
+              logger.logCode('error', 'ERR008', { action: 'remind-auto-punch-out', error: error.message, stack: error.stack });
 
               if (SLACK_WEBHOOK_URL) {
-                await sendSlackNotification(`❌ Failed to auto punch-out after remind. Please punch out manually.`);
+                await sendSlackNotification(`❌ Failed to auto punch-out after remind: ${error.message}\n💡 Please punch out manually.`);
               }
             }
 

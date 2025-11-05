@@ -67,14 +67,70 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
         }
       }
 
+      // Check for remind: /punch remind HH:MM
+      if (action === 'remind') {
+        const timeStr = textParts[1];
+        if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) {
+          return res.json({
+            response_type: 'ephemeral',
+            text: "❌ Invalid time format. Usage: `/punch remind HH:MM` (e.g., `/punch remind 09:00`)"
+          });
+        }
+
+        try {
+          // Parse the time (HH:MM format in JST)
+          const [hours, minutes] = timeStr.split(':').map(Number);
+
+          if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+            return res.json({
+              response_type: 'ephemeral',
+              text: "❌ Invalid time. Hours must be 0-23, minutes must be 0-59."
+            });
+          }
+
+          // Create target time in JST for today
+          const now = new Date();
+          const jstNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+          const punchInTime = new Date(jstNow);
+          punchInTime.setHours(hours, minutes, 0, 0);
+
+          // If the time is in the future today, it might be wrong - warn user
+          if (punchInTime > jstNow) {
+            return res.json({
+              response_type: 'ephemeral',
+              text: `⚠️ Warning: ${timeStr} is in the future. Are you sure you punched in at this time?\n💡 If you meant earlier today, the time looks correct.\n💡 If you meant to set a past time, please use a time earlier than now (${jstNow.getHours()}:${String(jstNow.getMinutes()).padStart(2, '0')})`
+            });
+          }
+
+          // Store the punch-in time
+          punchInTimes.set(user_id, punchInTime);
+          logger.logCode('audit', 'MAN004', { userId: user_id, reminderTime: timeStr, timestamp: punchInTime.toISOString() });
+
+          // Calculate hours worked
+          const secondsWorked = (jstNow - punchInTime) / 1000;
+          const hoursWorked = secondsWorked / 3600;
+          const workDuration = formatSecondsToHHMMSS(secondsWorked);
+
+          return res.json({
+            response_type: 'ephemeral',
+            text: `✅ Punch-in time set to ${timeStr} JST\n⏱️ Current work duration: ${workDuration} (${hoursWorked.toFixed(2)} hours)\n💡 Auto punch-out will trigger after ${MAX_WORK_HOURS} hours`
+          });
+        } catch (error) {
+          return res.json({
+            response_type: 'ephemeral',
+            text: `❌ Failed to set punch-in time: ${error.message}`
+          });
+        }
+      }
+
       // Check for cancel: /punch cancel or /punch out cancel
       if (action === 'cancel' || (action === 'out' && textParts[1]?.toLowerCase() === 'cancel')) {
         action = 'out';
         cancelSchedule = true;
-      } else if (!['in', 'out', 'status'].includes(action)) {
+      } else if (!['in', 'out', 'status', 'remind'].includes(action)) {
         return res.json({
           response_type: 'ephemeral',
-          text: "❌ Please specify 'in', 'out', 'status', or 'cancel'. Usage: `/punch in` or `/punch out @ HH:MM` or `/punch status` or `/punch cancel`"
+          text: "❌ Please specify 'in', 'out', 'status', 'remind', or 'cancel'. Usage: `/punch in` or `/punch out @ HH:MM` or `/punch status` or `/punch remind HH:MM` or `/punch cancel`"
         });
       } else if (action === 'out') {
         // Check for @ time syntax: /punch out @ 19:00

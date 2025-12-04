@@ -77,17 +77,21 @@ export function scheduleOutPunch(userId, timeString) {
   const timeoutId = setTimeout(async () => {
     logger.logCode('audit', 'SCH001', { userId });
 
+    // Remove from scheduled map BEFORE executing to prevent race with auto punch-out
+    scheduledPunchOuts.delete(userId);
+
     try {
       await punch(KOT_URL, KOT_ID, KOT_PASS, 'out');
       logger.logCode('audit', 'SCH002', { userId });
+
+      // Clear punch-in time after successful scheduled punch-out
+      punchInTimes.delete(userId);
 
       await sendSlackNotification(`✅ Scheduled punch-out completed at ${timeString} JST`);
     } catch (error) {
       logger.logCode('error', 'ERR005', { userId, error: error.message });
       await sendSlackNotification(`❌ Scheduled punch-out failed at ${timeString} JST`);
     }
-
-    scheduledPunchOuts.delete(userId);
   }, delay);
 
   // Store the scheduled punch-out

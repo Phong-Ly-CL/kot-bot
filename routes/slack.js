@@ -4,6 +4,7 @@ import { verifySlackSignature } from '../middleware/auth.js';
 import { punchInTimes, scheduleOutPunch, scheduledPunchOuts, sendSlackNotification } from '../services/scheduler.js';
 import { formatDateTimeJST, formatSecondsToHHMMSS } from '../utils.js';
 import { logger } from '../utils/logger.js';
+import { cancelAutoPunchOut } from '../services/autoPunch.js';
 
 const router = express.Router();
 
@@ -265,6 +266,11 @@ router.post('/punch', verifySlackSignature, async (req, res) => {
         logger.logCode('audit', 'MAN002', { userId: user_id, timestamp: new Date().toISOString() });
       } else if (action === 'out') {
         punchInTimes.delete(user_id);
+        // Cancel any pending auto punch-out
+        const wasCancelled = cancelAutoPunchOut();
+        if (wasCancelled) {
+          logger.logCode('audit', 'MAN006', { userId: user_id });
+        }
         logger.logCode('audit', 'MAN003', { userId: user_id });
       }
 

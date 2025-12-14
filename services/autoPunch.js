@@ -130,6 +130,7 @@ export function initAutoPunchIn() {
 
 // Track if auto punch-out is scheduled
 let autoPunchOutScheduled = false;
+let autoPunchOutTimeoutId = null;
 
 // Initialize auto punch-out scheduler
 export function initAutoPunchOut() {
@@ -174,7 +175,7 @@ export function initAutoPunchOut() {
         logger.logCode('audit', 'APN_OUT004', { hours: status.hoursWorked.toFixed(2), minutes: delayMinutes });
         autoPunchOutScheduled = true;
 
-        setTimeout(async () => {
+        autoPunchOutTimeoutId = setTimeout(async () => {
           try {
             // Double-check status before punching out
             const currentStatus = await checkWorkingHours(punchInTimes);
@@ -202,9 +203,11 @@ export function initAutoPunchOut() {
 
             await sendSlackNotification(`🚨 Auto punched out after ${currentStatus.hoursWorked.toFixed(2)} hours of work`);
             autoPunchOutScheduled = false;
+            autoPunchOutTimeoutId = null;
           } catch (error) {
             logger.logCode('error', 'ERR003', { error: error.message });
             autoPunchOutScheduled = false;
+            autoPunchOutTimeoutId = null;
           }
         }, delayMs);
 
@@ -222,4 +225,16 @@ export function initAutoPunchOut() {
   });
 
   logger.logCode('audit', 'APN_OUT010', { maxHours: MAX_WORK_HOURS, minDelay: AUTO_PUNCH_OUT_DELAY_MIN, maxDelay: AUTO_PUNCH_OUT_DELAY_MAX });
+}
+
+// Cancel pending auto punch-out
+export function cancelAutoPunchOut() {
+  if (autoPunchOutTimeoutId) {
+    clearTimeout(autoPunchOutTimeoutId);
+    autoPunchOutTimeoutId = null;
+    autoPunchOutScheduled = false;
+    logger.logCode('audit', 'APN_OUT011');
+    return true;
+  }
+  return false;
 }

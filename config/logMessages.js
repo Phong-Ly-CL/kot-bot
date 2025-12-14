@@ -35,6 +35,7 @@ export const LOG_MESSAGES = {
   APN_OUT008: 'Currently punched in for {{hours}} hours (under {{max}}h limit)',
   APN_OUT009: 'Not currently punched in',
   APN_OUT010: 'Auto punch-out enabled: will punch out after {{maxHours}} hours (with {{minDelay}}-{{maxDelay}} min random delay)',
+  APN_OUT011: 'Cancelled pending auto punch-out',
 
   // KOT Service (KOT)
   KOT001: 'Logging in...',
@@ -54,6 +55,7 @@ export const LOG_MESSAGES = {
   MAN003: 'Cleared punch-in time for user {{userId}}',
   MAN004: 'User {{userId}} set remind time {{reminderTime}} - punch-in stored: {{timestamp}}',
   MAN005: 'User {{userId}} reminded time {{reminderTime}} - auto punched out after {{hoursWorked}} hours',
+  MAN006: 'Cancelled pending auto punch-out for user {{userId}} after manual punch-out',
 
   // Slack Notifications (SLACK)
   SLACK001: 'Failed to send Slack notification: {{error}}',
